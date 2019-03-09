@@ -1,0 +1,7 @@
+[package]
+name = "bvh_anim"
+version = "0.1.0"
+authors = ["George Burton <burtonageo@gmail.com>"]
+edition = "2018"
+
+[dependencies]
