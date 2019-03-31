@@ -7,3 +7,8 @@ description = "Placeholder"
 license = "MIT"
 
 [dependencies]
+atomic_refcell = "0.1"
+lexical = "2.1"
+mint = "0.5"
+smallstring = "0.1"
+smallvec = "0.6"
