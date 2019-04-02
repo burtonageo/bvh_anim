@@ -1,4 +1,5 @@
 #![allow(dead_code, unused)]
+#![warn(unused_imports)]
 
 //! A small library for loading and manipulating BioVision motion files.
 //!
@@ -47,6 +48,8 @@
 //!
 //! [here]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
 
+pub mod write;
+
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use mint::Vector3;
 use smallstring::SmallString;
@@ -55,10 +58,10 @@ use std::{
     error::Error as StdError,
     fmt,
     io::{self, BufRead, Write},
-    iter::{self, Iterator},
+    iter::Iterator,
     marker::PhantomData,
     mem,
-    num::{NonZeroUsize, ParseFloatError},
+    num::ParseFloatError,
     ops::Deref,
     str::{self, FromStr},
     time::Duration,
@@ -144,7 +147,7 @@ impl Bvh {
 
         const ROOT_KEYWORD: &str = "ROOT";
         const JOINT_KEYWORD: &str = "JOINT";
-        const ENDSITE_KEYWORD: &str = "End Site";
+        const ENDSITE_KEYWORDS: &[&str] = &["End", "Site"];
 
         const OPEN_BRACE: &str = "{";
         const CLOSE_BRACE: &str = "}";
@@ -221,7 +224,7 @@ impl Bvh {
                 continue;
             }
 
-            if first_token == "End" && tokens.next() == Some("Site") {
+            if first_token == ENDSITE_KEYWORDS[0] && tokens.next() == Some(ENDSITE_KEYWORDS[1]) {
                 in_end_site = true;
                 continue;
             }
@@ -658,26 +661,28 @@ impl fmt::Debug for BoneMut<'_> {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Channel {
     channel_type: ChannelType,
-    index: usize,
+    motion_index: usize,
 }
 
 impl Channel {
     #[inline]
-    fn new(channel_type: ChannelType, index: usize) -> Self {
+    fn new(channel_type: ChannelType, motion_index: usize) -> Self {
         Channel {
             channel_type,
-            index,
+            motion_index,
         }
     }
 
+    /// Returns the `ChannelType` to which this `Channel` corresponds.
     #[inline]
     pub fn channel_type(&self) -> ChannelType {
         self.channel_type
     }
 
+    /// Returns the index of the motion value to which this `Channel` corresponds.
     #[inline]
-    pub fn index(&self) -> usize {
-        self.index
+    pub fn motion_index(&self) -> usize {
+        self.motion_index
     }
 }
 
@@ -879,172 +884,6 @@ impl<'a> Iterator for RowsIter<'a> {
             Some(&self.mat.data[row_idx_start..row_idx_end])
         } else {
             None
-        }
-    }
-}
-
-/// Contains options for `bvh` file formatting.
-pub mod write {
-    use super::*;
-
-    /// Specify formatting options for writing a `Bvh`.
-    #[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
-    pub struct WriteOptions {
-        /// Which indentation style to use for nested bones.
-        pub indent: IndentStyle,
-        /// Whether a pass should run on the clip data to convert the matrix
-        /// values to radians.
-        pub convert_to_radians: bool,
-        /// Which style new line terminator to use when writing the `bvh`.
-        pub line_terminator: LineTerminator,
-        #[doc(hidden)]
-        _nonexhaustive: (),
-    }
-
-    impl WriteOptions {
-        /// Create a new `WriteOptions` with default values.
-        #[inline]
-        pub fn new() -> Self {
-            Default::default()
-        }
-
-        /// Output the `Bvh` file to the `writer` with the given options.
-        pub fn write<W: Write>(&self, bvh: &Bvh, writer: &mut W) -> io::Result<()> {
-            let mut curr_line = String::new();
-            let mut curr_bytes_written = 0usize;
-            let mut curr_string_len = 0usize;
-            let mut iter_state = WriteOptionsIterState::default();
-
-            while self.next_line(bvh, &mut curr_line, &mut iter_state) != false {
-                let bytes: &[u8] = curr_line.as_ref();
-                curr_string_len += bytes.len();
-                curr_bytes_written += writer.write(bytes)?;
-
-                if curr_bytes_written != curr_string_len {
-                    return Err(
-                        io::Error::new(io::ErrorKind::Other, "Data has been dropped while writing to file"));
-                }
-            }
-            writer.flush()
-        }
-
-        /// Output the `Bvh` file to the `string` with the given options.
-        pub fn write_to_string(&self, bvh: &Bvh) -> String {
-            let mut curr_line = String::new();
-            let mut out_string = String::new();
-            let mut iter_state = WriteOptionsIterState::default();
-
-            while self.next_line(bvh, &mut curr_line, &mut iter_state) != false {
-                out_string.push_str(&curr_line);
-            }
-
-            out_string
-        }
-
-        /// Get the next line of the written bvh file. This function is
-        /// structured so that the `line` string can be continually
-        /// re-used without allocating and de-allocating memory.
-        ///
-        /// # Returns
-        ///
-        /// Returns `true` when there are still more lines available,
-        /// `false` when all lines have been extracted. 
-        fn next_line(&self, bvh: &Bvh, line: &mut String, iter_state: &mut WriteOptionsIterState) -> bool {
-            line.clear();
-            false
-        }
-    }
-
-    #[derive(Default)]
-    struct WriteOptionsIterState {
-    }
-
-    /// Specify indentation style to use when writing the `Bvh` joints.
-    ///
-    /// By default, this value is set to 4 spaces.
-    #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-    pub enum IndentStyle {
-        /// Do not indent nested joints.
-        NoIndentation,
-        /// Use a single tab (`'\t'`) for indentation.
-        Tabs,
-        /// Use `n` spaces for indentation.
-        Spaces(NonZeroUsize),
-    }
-
-    impl IndentStyle {
-        /// Create a new `IndentStyle` with `n` preceeding spaces.
-        ///
-        /// If `n` is `0`, then `IndentStyle::NoIndentation` is returned.
-        #[inline]
-        pub fn with_spaces(n: usize) -> Self {
-            NonZeroUsize::new(n)
-                .map(IndentStyle::Spaces)
-                .unwrap_or(IndentStyle::NoIndentation)
-        }
-
-        /// Return an `Iterator` which yields bytes corresponding to the ascii
-        /// chars which form the `String` this indentation style would take.
-        #[inline]
-        fn prefix_chars(&self) -> impl Iterator<Item = u8> {
-            match *self {
-                IndentStyle::NoIndentation => iter::repeat(b'\0').take(0),
-                IndentStyle::Tabs => iter::repeat(b'\t').take(1),
-                IndentStyle::Spaces(n) => iter::repeat(b' ').take(n.get()),
-            }
-        }
-    }
-
-    /// Create a new `IndentStyle` using a single tab.
-    impl Default for IndentStyle {
-        fn default() -> Self {
-            IndentStyle::Tabs
-        }
-    }
-
-    /// Represents which line terminator style to use when writing a `Bvh` file.
-    #[cfg_attr(target_os = "unix", unused)]
-    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-    pub enum LineTerminator {
-        /// Use Unix-style line endings (`'\n'`).
-        Unix,
-        /// * On Unix, use Unix-style line endings (`'\n'`).
-        /// * On Windows, use Windows-style line endings (`'\r\n'`).
-        Native,
-    }
-
-    #[cfg(target_os = "windows")]
-    impl LineTerminator {
-        /// Return the characters of the `LineTerminator` as a `str`.
-        #[inline]
-        pub fn as_str(&self) -> &str {
-            match *self {
-                LineTerminator::Unix => "\n",
-                LineTerminator::Native => "\r\n",
-            }
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    impl LineTerminator {
-        /// Return the characters of the `LineTerminator` as a `str`.
-        #[inline]
-        pub fn as_str(&self) -> &str {
-            "\n"
-        }
-    }
-
-    impl Default for LineTerminator {
-        #[inline]
-        fn default() -> Self {
-            LineTerminator::Native
-        }
-    }
-
-    impl fmt::Display for LineTerminator {
-        #[inline]
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str(self.as_str())        
         }
     }
 }
