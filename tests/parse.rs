@@ -11,4 +11,9 @@ fn test_load_success() {
     for joint in bvh.joints() {
         println!("{:#?}", joint);
     }
+    println!("Frame time: {:?}", bvh.clips().frame_time());
+
+    for frame in bvh.clips().frames() {
+        println!("{:?}", frame);
+    }
 }

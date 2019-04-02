@@ -78,12 +78,12 @@ use std::{
     iter::Iterator,
     marker::PhantomData,
     mem,
-    ops::Deref,
+    ops::{Deref, DerefMut, Index, IndexMut},
     str::{self, FromStr},
     time::Duration,
 };
 
-pub use errors::{LoadError, ParseChannelError};
+pub use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
 
 /// Loads the `Bvh` from the `reader`.
 #[inline]
@@ -114,14 +114,21 @@ impl Bvh {
 
     /// Loads the `Bvh` from the `reader`.
     pub fn load<R: BufRead>(mut reader: R) -> Result<Self, LoadError> {
-        let joints = Bvh::read_joints(reader.by_ref()).map(AtomicRefCell::new)?;
-        let clips = Clips::read_motion(reader.by_ref()).map(AtomicRefCell::new)?;
+        let (joints, num_channels) = Bvh::read_joints(reader.by_ref())
+            .map(|(jts, chnls)| (AtomicRefCell::new(jts), chnls))?;
+        let clips = Clips::read_motion(reader.by_ref(), num_channels).map(AtomicRefCell::new)?;
 
         Ok(Bvh { joints, clips })
     }
 
     /// Writes the `Bvh` using the `bvh` file format to the `writer`, with
     /// default settings.
+    ///
+    /// # Notes
+    ///
+    /// To customise the formatting, see the [`WriteOptions`][`WriteOptions`] type.
+    ///
+    /// [`WriteOptions`]: write/struct.WriteOptions.html
     #[inline]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         write::WriteOptions::default().write(self, writer)
@@ -168,7 +175,7 @@ impl Bvh {
     }
 
     /// Non-monomorphised logic for parsing the data from a `BufRead`.
-    fn read_joints(reader: &mut dyn BufRead) -> Result<Vec<JointData>, LoadError> {
+    fn read_joints(reader: &mut dyn BufRead) -> Result<(Vec<JointData>, usize), LoadJointsError> {
         const HEIRARCHY_KEYWORD: &str = "HIERARCHY";
 
         const ROOT_KEYWORD: &str = "ROOT";
@@ -212,7 +219,7 @@ impl Bvh {
             let line = line?;
             let line = line.trim();
 
-            let mut tokens = line.split(|c| c == ' ' || c == '\t' || c == ':');
+            let mut tokens = line.split(|c: char| c.is_ascii_whitespace() || c == ':');
 
             let first_token = match tokens.next() {
                 Some(tok) => tok,
@@ -220,7 +227,6 @@ impl Bvh {
             };
 
             if first_token == HEIRARCHY_KEYWORD && curr_mode == ParseMode::NotStarted {
-                println!("Found heirarchy");
                 curr_mode = ParseMode::InHeirarchy;
                 continue;
             }
@@ -263,12 +269,10 @@ impl Bvh {
                     in_end_site = false;
                     pushed_end_site_joint = true;
                 }
-                continue;
             }
 
             if first_token == ENDSITE_KEYWORDS[0] && tokens.next() == Some(ENDSITE_KEYWORDS[1]) {
                 in_end_site = true;
-                continue;
             }
 
             if first_token == JOINT_KEYWORD {
@@ -302,7 +306,7 @@ impl Bvh {
 
             if first_token == OFFSET_KEYWORD {
                 if curr_mode != ParseMode::InHeirarchy {
-                    return Err(LoadError::UnexpectedOffsetSection { line: line_num });
+                    return Err(LoadJointsError::UnexpectedOffsetSection { line: line_num });
                 }
 
                 let mut offset = Vector3::from_slice(&[0.0, 0.0, 0.0]);
@@ -311,13 +315,13 @@ impl Bvh {
                     ($axis_field:ident, $axis_enum:ident) => {
                         if let Some(tok) = tokens.next() {
                             offset.$axis_field =
-                                str::parse(tok).map_err(|e| LoadError::ParseOffsetError {
+                                str::parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
                                     parse_float_error: e,
                                     axis: Axis::$axis_enum,
                                     line: line_num,
                                 })?;
                         } else {
-                            return Err(LoadError::MissingOffsetAxis {
+                            return Err(LoadJointsError::MissingOffsetAxis {
                                 axis: Axis::$axis_enum,
                                 line: line_num,
                             });
@@ -334,7 +338,7 @@ impl Bvh {
 
             if first_token == CHANNELS_KEYWORD {
                 if curr_mode != ParseMode::InHeirarchy {
-                    return Err(LoadError::UnexpectedChannelsSection { line: line_num });
+                    return Err(LoadJointsError::UnexpectedChannelsSection { line: line_num });
                 }
 
                 let num_channels: usize = if let Some(tok) = tokens.next() {
@@ -347,7 +351,7 @@ impl Bvh {
                 channels.reserve(num_channels);
 
                 while let Some(tok) = tokens.next() {
-                    let channel_ty = str::parse(tok).map_err(|e| LoadError::ParseChannelError {
+                    let channel_ty = str::parse(tok).map_err(|e| LoadJointsError::ParseChannelError {
                         error: e,
                         line: line_num,
                     })?;
@@ -365,10 +369,10 @@ impl Bvh {
         }
 
         if curr_mode != ParseMode::Finished {
-            return Err(LoadError::MissingRoot);
+            return Err(LoadJointsError::MissingRoot);
         }
 
-        Ok(joints)
+        Ok((joints, curr_channel))
     }
 
     fn write_joints(&self, writer: &mut dyn Write) -> Result<(), io::Error> {
@@ -473,7 +477,7 @@ impl JointData {
 
 /// Data private to joints.
 #[doc(hidden)]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct JointPrivateData {
     /// Index of this bone in the array.
     self_index: usize,
@@ -505,13 +509,11 @@ impl JointPrivateData {
     }
 }
 
-/*
 impl fmt::Debug for JointPrivateData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("JointPrivateData { .. }")
     }
 }
-*/
 
 impl JointData {
     /// Returns the name of the `JointData`.
@@ -921,37 +923,169 @@ impl fmt::Display for ChannelType {
 #[derive(Clone, Default)]
 pub struct Clips {
     data: Vec<f32>,
-    width: usize,
+    num_frames: usize,
+    num_channels: usize,
     frame_time: Duration,
 }
 
 impl Clips {
-    fn read_motion(reader: &mut dyn BufRead) -> Result<Self, LoadError> {
+    fn read_motion(reader: &mut dyn BufRead, num_channels: usize) -> Result<Self, LoadMotionError> {
+        fn fraction_seconds_to_nanoseconds(x: f64) -> u64 {
+            const NSEC_FACTOR: f64 = 1000_000_000.0;
+            (x * NSEC_FACTOR) as u64
+        }
+
         const MOTION_KEYWORD: &str = "MOTION";
-        const FRAMES_KEYWORD: &str = "Frames";
-        const FRAME_TIME_KEYWORDS: &[&str] = &[&"Frame", &"Time"];
-        Ok(Default::default())
+        const FRAMES_KEYWORD: &str = "Frames:";
+        const FRAME_TIME_KEYWORDS: &[&str] = &[&"Frame", &"Time:"];
+
+        let mut out_clips = Clips::default();
+        out_clips.num_channels = num_channels;
+        let mut lines = reader.lines();
+
+        lines.next()
+            .ok_or(LoadMotionError::MissingMotionSection)
+            .and_then(|l| Ok(l?))
+            .and_then(|line| {
+                if line == MOTION_KEYWORD {
+                    Ok(())
+                } else {
+                    Err(LoadMotionError::MissingMotionSection)
+                }
+            })?;
+
+        out_clips.num_frames = lines.next()
+            .ok_or(LoadMotionError::MissingNumFrames {
+                parse_error: None,
+            })
+            .and_then(|l| Ok(l?))
+            .and_then(|line| {
+                let mut tokens = line.split(|c| c == ' ' || c == '\t');
+
+                let frames_kw = tokens.next();
+                if frames_kw == Some(FRAMES_KEYWORD) {
+                    // do nothing
+                } else {
+                    return Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                    });
+                }
+
+                let parse_num_frames = |token| {
+                    if let Some(num_frames) = token {
+                        println!("{:?}", num_frames);
+                        str::parse::<usize>(num_frames).map_err(|e| {
+                            LoadMotionError::MissingNumFrames {
+                                parse_error: Some(e),
+                            }
+                        }).map_err(Into::into)
+                    } else {
+                        Err(LoadMotionError::MissingNumFrames {
+                            parse_error: None,
+                        })
+                    }
+                };
+
+                match tokens.next() {
+                    Some(":") => parse_num_frames(tokens.next()),
+                    Some(tok) => parse_num_frames(Some(tok)),
+                    None => Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                    })
+                 }
+            })?;
+
+        out_clips.frame_time = lines.next()
+            .ok_or(LoadMotionError::MissingFrameTime {
+                parse_error: None,
+            })
+            .and_then(|l| Ok(l?))
+            .and_then(|line| {
+                let mut tokens = line.split(|c: char| c.is_ascii_whitespace());
+
+                let frame_time_kw = tokens.next();
+                if frame_time_kw.as_ref() == FRAME_TIME_KEYWORDS.get(0) {
+                    // do nothing
+                } else {
+                    return Err(LoadMotionError::MissingFrameTime {
+                        parse_error: None,
+                    });
+                }
+
+                let frame_time_kw = tokens.next();
+                if frame_time_kw.as_ref() == FRAME_TIME_KEYWORDS.get(1) {
+                    // do nothing
+                } else {
+                    return Err(LoadMotionError::MissingFrameTime {
+                        parse_error: None,
+                    });
+                }
+
+                let parse_num_frames = |token| {
+                    if let Some(frame_time) = token {
+                        let frame_time_secs = str::parse::<f64>(frame_time).map_err(|e| {
+                            LoadMotionError::MissingFrameTime {
+                                parse_error: Some(e),
+                            }
+                        })?;
+                        Ok(Duration::from_nanos(fraction_seconds_to_nanoseconds(frame_time_secs)))
+                    } else {
+                        Err(LoadMotionError::MissingFrameTime {
+                            parse_error: None,
+                        })
+                    }
+                };
+
+                match tokens.next() {
+                    Some(":") => parse_num_frames(tokens.next()),
+                    Some(tok) => parse_num_frames(Some(tok)),
+                    None => Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                    })
+                 }
+            })?;
+
+        out_clips.data.reserve(out_clips.num_channels * out_clips.num_frames);
+        for line in lines {
+            let line = line?;
+            let tokens = line.split_whitespace();
+            for token in tokens {
+                let motion: f32 = str::parse(token).map_err(|e| {
+                    LoadMotionError::ParseMotionSection {
+                        parse_error: Some(e),
+                    }
+                })?;
+                out_clips.data.push(motion);
+            }
+        }
+
+        Ok(out_clips)
     }
 
     #[inline]
-    pub fn new(width: usize, frame_time: Duration) -> Self {
-        Clips {
-            data: vec![],
-            width,
-            frame_time,
+    pub fn frames(&self) -> Frames<'_> {
+        Frames {
+            clips: self,
+            curr_frame: 0,
         }
-    }
-
-    pub fn insert_anim_clip(&mut self, clip: &[f32]) -> Result<(), ()> {
-        Err(())
     }
 
     #[inline]
-    pub fn rows(&self) -> RowsIter<'_> {
-        RowsIter {
-            mat: self,
-            curr_row: 0,
+    pub fn frames_mut(&mut self) -> FramesMut<'_> {
+        FramesMut {
+            clips: self,
+            curr_frame: 0,
         }
+    }
+
+    #[inline]
+    pub fn get_motion(&self, frame: usize, channel: &Channel) -> f32 {
+        *self.frames().nth(frame).unwrap().index(channel)
+    }
+
+    #[inline]
+    pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
+        *self.frames_mut().nth(frame).unwrap().index_mut(channel) = new_motion;
     }
 
     #[inline]
@@ -967,35 +1101,113 @@ impl Clips {
 
 impl fmt::Debug for Clips {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in self.rows() {
-            fmt::Debug::fmt(&row, f)?;
+        for frame in self.frames() {
+            fmt::Debug::fmt(&frame, f)?;
         }
         Ok(())
     }
 }
 
+/// An iterator over the frames of a `Bvh`.
 #[derive(Debug)]
-pub struct RowsIter<'a> {
-    mat: &'a Clips,
-    curr_row: usize,
+pub struct Frames<'a> {
+    clips: &'a Clips,
+    curr_frame: usize,
 }
 
-impl<'a> Iterator for RowsIter<'a> {
-    type Item = &'a [f32];
+impl<'a> Iterator for Frames<'a> {
+    type Item = &'a Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let w = self.mat.width;
+        let nchans = self.clips.num_channels;
+        let nframes = self.clips.num_frames;
 
-        let row_idx_start = self.curr_row * w;
-        let row_idx_end = row_idx_start + w;
-
-        self.curr_row += 1;
-
-        if row_idx_end < self.mat.data.len() {
-            Some(&self.mat.data[row_idx_start..row_idx_end])
-        } else {
-            None
+        if nframes == 0 || self.curr_frame >= nframes {
+            return None;
         }
+
+        let start = self.curr_frame * nchans;
+        let end = start + nchans;
+
+        self.curr_frame += 1;
+
+        Some(From::from(&self.clips.data[start..end]))
+    }
+}
+
+/// A mutable iterator over the frames of a `Bvh`.
+#[derive(Debug)]
+pub struct FramesMut<'a> {
+    clips: &'a mut Clips,
+    curr_frame: usize,
+}
+
+impl<'a> Iterator for FramesMut<'a> {
+    type Item = &'a mut Frame;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let nchans = self.clips.num_channels;
+        let nframes = self.clips.num_frames;
+
+        if nframes == 0 || self.curr_frame >= nframes {
+            return None;
+        }
+
+        let start = self.curr_frame * nchans;
+        let end = start + nchans;
+
+        self.curr_frame += 1;
+
+        let frame_motions = &mut self.clips.data[start..end];
+        unsafe {
+            // Cast the anonymous lifetime to the 'a lifetime to avoid E0495.
+            Some(mem::transmute::<&mut Frame, &'a mut Frame>(From::from(frame_motions)))
+        }
+    }
+}
+
+/// A wrapper for a slice of motion values, so that they can be indexed by `Channel`.
+#[derive(Debug)]
+pub struct Frame([f32]);
+
+impl<'a> From<&'a [f32]> for &'a Frame {
+    fn from(frame_motions: &'a [f32]) -> Self {
+        unsafe { &*(frame_motions as *const [f32] as *const Frame) }
+    }
+}
+
+impl<'a> From<&'a mut [f32]> for &'a mut Frame {
+    fn from(frame_motions: &'a mut [f32]) -> Self {
+        unsafe { &mut *(frame_motions as *mut [f32] as *mut Frame) }
+    }
+}
+
+impl Index<&Channel> for Frame {
+    type Output = f32;
+    #[inline]
+    fn index(&self, channel: &Channel) -> &Self::Output {
+        self.0.index(channel.motion_index)
+    }
+}
+
+impl IndexMut<&Channel> for Frame {
+    fn index_mut(&mut self, channel: &Channel) -> &mut Self::Output {
+        self.0.index_mut(channel.motion_index)
+    }
+}
+
+impl Deref for Frame {
+    type Target = [f32];
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Frame {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
