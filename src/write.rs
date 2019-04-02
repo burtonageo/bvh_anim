@@ -42,8 +42,10 @@ impl WriteOptions {
             curr_bytes_written += writer.write(bytes)?;
 
             if curr_bytes_written != curr_string_len {
-                return Err(
-                    io::Error::new(io::ErrorKind::Other, "Data has been dropped while writing to file"));
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Data has been dropped while writing to file",
+                ));
             }
         }
         writer.flush()
@@ -69,31 +71,27 @@ impl WriteOptions {
     /// # Returns
     ///
     /// Returns `true` when there are still more lines available,
-    /// `false` when all lines have been extracted. 
-    fn next_line(&self, bvh: &Bvh, line: &mut String, iter_state: &mut WriteOptionsIterState) -> bool {
+    /// `false` when all lines have been extracted.
+    fn next_line(
+        &self,
+        bvh: &Bvh,
+        line: &mut String,
+        iter_state: &mut WriteOptionsIterState,
+    ) -> bool {
         line.clear();
         false
     }
 }
 
 enum WriteOptionsIterState<'a> {
-    WriteBones {
-        bvh: &'a Bvh,
-        curr_bone: usize,
-    },
-    WriteMotion {
-        bvh: &'a Bvh,
-        curr_frame: usize,
-    }
+    WriteBones { bvh: &'a Bvh, curr_bone: usize },
+    WriteMotion { bvh: &'a Bvh, curr_frame: usize },
 }
 
 impl<'a> WriteOptionsIterState<'a> {
     #[inline]
     fn new(bvh: &'a Bvh) -> Self {
-        WriteOptionsIterState::WriteBones {
-            bvh,
-            curr_bone: 0,
-        }
+        WriteOptionsIterState::WriteBones { bvh, curr_bone: 0 }
     }
 }
 
@@ -182,6 +180,6 @@ impl Default for LineTerminator {
 impl fmt::Display for LineTerminator {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())        
+        f.write_str(self.as_str())
     }
 }

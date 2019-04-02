@@ -1,10 +1,5 @@
 use crate::Axis;
-use std::{
-    error::Error as StdError,
-    fmt,
-    io,
-    num::ParseFloatError,
-};
+use std::{error::Error as StdError, fmt, io, num::ParseFloatError};
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -63,34 +58,17 @@ impl fmt::Display for LoadError {
         match *self {
             LoadError::Io(ref e) => fmt::Display::fmt(&e, f),
             LoadError::MissingRoot => f.write_str("The root heirarchy could not be found"),
-            LoadError::MissingJointName { line } => {
-                f.write_str("Unknown error")
-            }
-            LoadError::UnexpectedChannelsSection { line } => {
-                f.write_str("Unknown error")
-            }
-            LoadError::ParseChannelError {
-                ref error,
-                line,
-            } => {
-                f.write_str("Unknown error")
-            }
-            LoadError::UnexpectedOffsetSection { line } => {
-                f.write_str("Unknown error")
-            }
+            LoadError::MissingJointName { line } => f.write_str("Unknown error"),
+            LoadError::UnexpectedChannelsSection { line } => f.write_str("Unknown error"),
+            LoadError::ParseChannelError { ref error, line } => f.write_str("Unknown error"),
+            LoadError::UnexpectedOffsetSection { line } => f.write_str("Unknown error"),
             LoadError::ParseOffsetError {
                 ref parse_float_error,
                 axis,
                 line,
-            } => {
-                f.write_str("Unknown error")
-            }
-            LoadError::MissingOffsetAxis { axis, line } => {
-                f.write_str("Unknown error")
-            }
-            LoadError::MissingMotion => {
-                f.write_str("Unknown error")
-            }
+            } => f.write_str("Unknown error"),
+            LoadError::MissingOffsetAxis { axis, line } => f.write_str("Unknown error"),
+            LoadError::MissingMotion => f.write_str("Unknown error"),
         }
     }
 }
@@ -101,7 +79,10 @@ impl StdError for LoadError {
         match *self {
             LoadError::Io(ref e) => Some(e),
             LoadError::ParseChannelError { ref error, .. } => Some(error),
-            LoadError::ParseOffsetError { ref parse_float_error, .. } => Some(parse_float_error),
+            LoadError::ParseOffsetError {
+                ref parse_float_error,
+                ..
+            } => Some(parse_float_error),
             _ => None,
         }
     }
@@ -127,4 +108,3 @@ impl StdError for ParseChannelError {
         "The channel could not be parsed from the given string"
     }
 }
-
