@@ -8,5 +8,7 @@ fn test_load_success() {
         .unwrap();
 
     let bvh = Bvh::load(reader).unwrap();
-    println!("{:?}", bvh);
+    for joint in bvh.joints() {
+        println!("{:#?}", joint);
+    }
 }
