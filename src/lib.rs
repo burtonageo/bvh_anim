@@ -17,8 +17,8 @@
 //!   Channels are listed in the order in which the transformation should be applied
 //!   to the global transform for the root.
 //! * An offset, which is the vector distance from the parent joint.
-//! 
-//! ```
+//!
+//! ```text
 //! ROOT <Root-name>
 //! {
 //!     OFFSET <Root-offset-x> <Root-offset-y> <Root-offset-z>
@@ -48,8 +48,8 @@
 //!
 //! [here]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
 
-pub mod write;
 mod errors;
+pub mod write;
 
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use mint::Vector3;
@@ -144,7 +144,7 @@ impl Bvh {
 
     /// Non-monomorphised logic for parsing the data from a `BufRead`.
     fn read_bones(reader: &mut dyn BufRead) -> Result<Vec<BoneData>, LoadError> {
-        const HEIRARCHY_KEYWORD: &str = "HEIRARCHY";
+        const HEIRARCHY_KEYWORD: &str = "HIERARCHY";
 
         const ROOT_KEYWORD: &str = "ROOT";
         const JOINT_KEYWORD: &str = "JOINT";
@@ -156,7 +156,7 @@ impl Bvh {
         const OFFSET_KEYWORD: &str = "OFFSET";
         const CHANNELS_KEYWORD: &str = "CHANNELS";
 
-        #[derive(Eq, PartialEq)]
+        #[derive(Debug, Eq, PartialEq)]
         enum ParseMode {
             NotStarted,
             InHeirarchy,
@@ -186,20 +186,22 @@ impl Bvh {
             let line = line?;
             let line = line.trim();
 
-            let mut tokens = line.split_whitespace();
+            let mut tokens = line.split(|c| c == ' ' || c == '\t' || c == ':');
+
             let first_token = match tokens.next() {
                 Some(tok) => tok,
                 None => continue,
             };
 
             if first_token == HEIRARCHY_KEYWORD && curr_mode == ParseMode::NotStarted {
+                println!("Found heirarchy");
                 curr_mode = ParseMode::InHeirarchy;
                 continue;
             }
 
             if first_token == ROOT_KEYWORD {
                 if curr_mode != ParseMode::InHeirarchy {
-                    panic!();
+                    panic!("Unexpected root: {:?}", curr_mode);
                 }
 
                 if let Some(tok) = tokens.next() {
@@ -232,10 +234,13 @@ impl Bvh {
 
             if first_token == JOINT_KEYWORD {
                 if curr_mode != ParseMode::InHeirarchy {
-                    panic!();
+                    panic!("Unexpected Joint");
                 }
 
-                if let BoneData::Joint { ref mut private, .. } = curr_bone {
+                if let BoneData::Joint {
+                    ref mut private, ..
+                } = curr_bone
+                {
                     private.self_index = curr_index;
                     private.parent_index = curr_depth - 1;
                     private.depth = curr_depth;
@@ -252,9 +257,7 @@ impl Bvh {
 
             if first_token == OFFSET_KEYWORD {
                 if curr_mode != ParseMode::InHeirarchy {
-                    return Err(LoadError::UnexpectedOffsetSection {
-                        line: line_num,
-                    });
+                    return Err(LoadError::UnexpectedOffsetSection { line: line_num });
                 }
 
                 let mut offset = Vector3::from_slice(&[0.0, 0.0, 0.0]);
@@ -262,16 +265,15 @@ impl Bvh {
                 macro_rules! parse_axis {
                     ($axis_field:ident, $axis_enum:ident) => {
                         if let Some(tok) = tokens.next() {
-                            offset. $axis_field = str::parse(tok).map_err(|e| {
-                                LoadError::ParseOffsetError {
+                            offset.$axis_field =
+                                str::parse(tok).map_err(|e| LoadError::ParseOffsetError {
                                     parse_float_error: e,
-                                    axis: Axis:: $axis_enum,
+                                    axis: Axis::$axis_enum,
                                     line: line_num,
-                                }
-                            })?;
+                                })?;
                         } else {
                             return Err(LoadError::MissingOffsetAxis {
-                                axis: Axis:: $axis_enum,
+                                axis: Axis::$axis_enum,
                                 line: line_num,
                             });
                         }
@@ -287,18 +289,22 @@ impl Bvh {
 
             if first_token == CHANNELS_KEYWORD {
                 if curr_mode != ParseMode::InHeirarchy {
-                    return Err(LoadError::UnexpectedChannelsSection {
-                        line: line_num,
-                    });
+                    return Err(LoadError::UnexpectedChannelsSection { line: line_num });
                 }
 
+                let num_channels: usize = if let Some(tok) = tokens.next() {
+                    str::parse(tok).unwrap()
+                } else {
+                    panic!("Num channels not found!");
+                };
+
                 let mut channels: SmallVec<[Channel; 6]> = Default::default();
+                channels.reserve(num_channels);
+
                 while let Some(tok) = tokens.next() {
-                    let channel_ty = str::parse(tok).map_err(|e| {
-                        LoadError::ParseChannelError {
-                            error: e,
-                            line: line_num,
-                        }
+                    let channel_ty = str::parse(tok).map_err(|e| LoadError::ParseChannelError {
+                        error: e,
+                        line: line_num,
                     })?;
                     let channel = Channel::new(channel_ty, curr_channel);
                     curr_channel += 1;
@@ -409,10 +415,12 @@ impl BoneData {
 
     fn set_channels(&mut self, new_channels: SmallVec<[Channel; 6]>) {
         match *self {
-            BoneData::Root { ref mut channels, .. } => *channels = new_channels,
-            BoneData::Joint { ref mut channels, .. } =>{
-                *channels = new_channels.iter().map(|c| *c).collect()
-            }
+            BoneData::Root {
+                ref mut channels, ..
+            } => *channels = new_channels,
+            BoneData::Joint {
+                ref mut channels, ..
+            } => *channels = new_channels.iter().map(|c| *c).collect(),
         }
     }
 }
@@ -462,8 +470,7 @@ impl BoneData {
     #[inline]
     pub fn name(&self) -> &str {
         match *self {
-            BoneData::Root { ref name, .. } |
-            BoneData::Joint { ref name, .. } => &*name
+            BoneData::Root { ref name, .. } | BoneData::Joint { ref name, .. } => &*name,
         }
     }
 
@@ -471,17 +478,25 @@ impl BoneData {
     #[inline]
     pub fn offset(&self) -> &Vector3<f32> {
         match *self {
-            BoneData::Joint { ref offset, .. } |
-            BoneData::Root { ref offset, .. } => offset
+            BoneData::Joint { ref offset, .. } | BoneData::Root { ref offset, .. } => offset,
         }
     }
 
-    /// Returns the ordered array of channels of the bone if they exist, or `None`.
+    /// Returns the ordered array of `Channel`s of this `Joint`.
     #[inline]
     pub fn channels(&self) -> &[Channel] {
         match *self {
             BoneData::Joint { ref channels, .. } => &channels[..],
             BoneData::Root { ref channels, .. } => &channels[..],
+        }
+    }
+
+    /// Returns a mutable reference to ordered array of `Channel`s of this `Joint`.
+    #[inline]
+    pub fn channels_mut(&mut self) -> &mut [Channel] {
+        match *self {
+            BoneData::Joint { ref mut channels, .. } => &mut channels[..],
+            BoneData::Root { ref mut channels, .. } => &mut channels[..],
         }
     }
 
@@ -586,13 +601,11 @@ impl Bone<'_> {
     /// Return the parent `Bone` if it exists, or `None` if it doesn't.
     #[inline]
     pub fn parent(&self) -> Option<Bone<'_>> {
-        self.data()
-            .parent_index()
-            .map(|idx| Bone {
-                self_index: idx,
-                skeleton: self.skeleton,
-                clips: self.clips,
-            })
+        self.data().parent_index().map(|idx| Bone {
+            self_index: idx,
+            skeleton: self.skeleton,
+            clips: self.clips,
+        })
     }
 
     /// Returns an iterator over the children of `self`.
@@ -628,7 +641,9 @@ impl<'a> BoneMut<'a> {
     /// Mutable access to the internal data of the bone.
     #[inline]
     pub fn data_mut(&mut self) -> AtomicRefMut<BoneData> {
-        AtomicRefMut::map(self.skeleton.borrow_mut(), |skel| &mut skel[self.self_index])
+        AtomicRefMut::map(self.skeleton.borrow_mut(), |skel| {
+            &mut skel[self.self_index]
+        })
     }
 
     /// Construct a `BoneMut` from a `Bone`.
@@ -705,6 +720,7 @@ pub enum ChannelType {
 }
 
 impl ChannelType {
+    #[inline]
     pub fn is_rotation(&self) -> bool {
         match *self {
             ChannelType::RotationX => true,
@@ -714,11 +730,13 @@ impl ChannelType {
         }
     }
 
+    #[inline]
     pub fn is_position(&self) -> bool {
         !self.is_rotation()
     }
 
     /// Get the `Axis` about which this `Channel` transforms.
+    #[inline]
     pub fn axis(&self) -> Axis {
         match *self {
             ChannelType::RotationX | ChannelType::PositionX => Axis::X,
@@ -728,6 +746,7 @@ impl ChannelType {
     }
 
     /// Returns the `Vector3` of the channel axis.
+    #[inline]
     pub fn axis_vector(&self) -> Vector3<f32> {
         self.axis().vector()
     }
@@ -746,11 +765,24 @@ pub enum Axis {
 
 impl Axis {
     /// Returns the `Vector3` which represents the axis.
+    #[inline]
     pub fn vector(&self) -> Vector3<f32> {
         match *self {
-            Axis::X => Vector3 { x: 1.0, y: 0.0, z: 0.0 },
-            Axis::Y => Vector3 { x: 0.0, y: 1.0, z: 0.0 },
-            Axis::Z => Vector3 { x: 0.0, y: 0.0, z: 1.0 },
+            Axis::X => Vector3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            Axis::Y => Vector3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            Axis::Z => Vector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
         }
     }
 }
@@ -799,7 +831,10 @@ pub struct Clips {
 
 impl Clips {
     fn read_motion(reader: &mut dyn BufRead) -> Result<Self, LoadError> {
-        unimplemented!()
+        const MOTION_KEYWORD: &str = "MOTION";
+        const FRAMES_KEYWORD: &str = "Frames";
+        const FRAME_TIME_KEYWORDS: &[&str] = &[&"Frame", &"Time"];
+        Ok(Default::default())
     }
 
     #[inline]
