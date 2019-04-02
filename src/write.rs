@@ -13,9 +13,6 @@ use std::{
 pub struct WriteOptions {
     /// Which indentation style to use for nested bones.
     pub indent: IndentStyle,
-    /// Whether a pass should run on the clip data to convert the matrix
-    /// values to radians.
-    pub convert_to_radians: bool,
     /// Which style new line terminator to use when writing the `bvh`.
     pub line_terminator: LineTerminator,
     #[doc(hidden)]
@@ -64,6 +61,22 @@ impl WriteOptions {
         out_string
     }
 
+    #[inline]
+    pub fn with_indent(self, indent: IndentStyle) -> Self {
+        WriteOptions {
+            indent,
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn with_line_terminator(self, line_terminator: LineTerminator) -> Self {
+        WriteOptions {
+            line_terminator,
+            ..self
+        }
+    }
+
     /// Get the next line of the written bvh file. This function is
     /// structured so that the `line` string can be continually
     /// re-used without allocating and de-allocating memory.
@@ -97,7 +110,7 @@ impl<'a> WriteOptionsIterState<'a> {
 
 /// Specify indentation style to use when writing the `Bvh` joints.
 ///
-/// By default, this value is set to 4 spaces.
+/// By default, this value is set to 1 tab.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum IndentStyle {
     /// Do not indent nested joints.
