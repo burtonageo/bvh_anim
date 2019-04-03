@@ -490,7 +490,7 @@ impl JointData {
         }
     }
 
-    /// Returns `true` if the `Joint` has an `end_site_offset`, or `None` if it doesn't.
+    /// Returns `true` if the `Joint` has an `end_site_offset`, or `false` if it doesn't.
     #[inline]
     pub fn has_end_site(&self) -> bool {
         self.end_site().is_some()
