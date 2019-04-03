@@ -70,6 +70,7 @@ pub mod write;
 
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use bstr::{io::BufReadExt, BStr, B};
+use lexical::try_parse;
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
@@ -329,13 +330,12 @@ impl Bvh {
                 macro_rules! parse_axis {
                     ($axis_field:ident, $axis_enum:ident) => {
                         if let Some(tok) = tokens.next() {
-                            offset.$axis_field = str::parse(tok.to_str()?).map_err(|e| {
-                                LoadJointsError::ParseOffsetError {
+                            offset.$axis_field =
+                                try_parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
                                     parse_float_error: e,
                                     axis: Axis::$axis_enum,
                                     line: line_num,
-                                }
-                            })?;
+                                })?;
                         } else {
                             return Err(LoadJointsError::MissingOffsetAxis {
                                 axis: Axis::$axis_enum,
@@ -358,7 +358,7 @@ impl Bvh {
                 }
 
                 let num_channels: usize = if let Some(tok) = tokens.next() {
-                    str::parse(tok.to_str()?).unwrap()
+                    try_parse(tok).unwrap()
                 } else {
                     panic!("Num channels not found!");
                 };
@@ -367,7 +367,7 @@ impl Bvh {
                 channels.reserve(num_channels);
 
                 while let Some(tok) = tokens.next() {
-                    let channel_ty = str::parse(tok.to_str()?).map_err(|e| {
+                    let channel_ty = ChannelType::from_bstr(tok).map_err(|e| {
                         LoadJointsError::ParseChannelError {
                             error: e,
                             line: line_num,
@@ -1043,7 +1043,7 @@ impl Clips {
 
                 let parse_num_frames = |token: Option<&BStr>| {
                     if let Some(num_frames) = token {
-                        str::parse::<usize>(num_frames.to_str()?)
+                        try_parse::<usize, _>(num_frames)
                             .map_err(|e| LoadMotionError::MissingNumFrames {
                                 parse_error: Some(e),
                             })
@@ -1083,12 +1083,11 @@ impl Clips {
 
                 let parse_frame_time = |token: Option<&BStr>| {
                     if let Some(frame_time) = token {
-                        let frame_time_secs =
-                            str::parse::<f64>(frame_time.to_str()?).map_err(|e| {
-                                LoadMotionError::MissingFrameTime {
-                                    parse_error: Some(e),
-                                }
-                            })?;
+                        let frame_time_secs = try_parse::<f64, _>(frame_time).map_err(|e| {
+                            LoadMotionError::MissingFrameTime {
+                                parse_error: Some(e),
+                            }
+                        })?;
                         Ok(Duration::from_nanos(fraction_seconds_to_nanoseconds(
                             frame_time_secs,
                         )))
@@ -1112,11 +1111,10 @@ impl Clips {
             let line = line?;
             let tokens = line.fields();
             for token in tokens {
-                let motion: f32 = str::parse(token.to_str()?).map_err(|e| {
-                    LoadMotionError::ParseMotionSection {
+                let motion: f32 =
+                    try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
                         parse_error: Some(e),
-                    }
-                })?;
+                    })?;
                 out_clips.data.push(motion);
             }
         }

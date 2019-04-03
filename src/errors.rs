@@ -1,10 +1,7 @@
-use bstr::{BString, Utf8Error};
+use bstr::BString;
 use crate::Axis;
-use std::{
-    error::Error as StdError,
-    fmt, io,
-    num::{ParseFloatError, ParseIntError},
-};
+use lexical::Error as LexicalError;
+use std::{error::Error as StdError, fmt, io};
 
 /// Errors which may arise when loading a `Bvh` file from
 /// a `Reader`.
@@ -61,8 +58,6 @@ impl From<LoadMotionError> for LoadError {
 pub enum LoadJointsError {
     /// An I/O error occurred.
     Io(io::Error),
-    /// A decoding error occurred.
-    Decode(Utf8Error),
     /// The skeletal hierarchy is missing the `Root` joint.
     MissingRoot,
     /// A name could not be found for the `Joint`.
@@ -90,7 +85,7 @@ pub enum LoadJointsError {
     /// An axis in the `OFFSET` section could not be parsed into a value.
     ParseOffsetError {
         /// The parse error.
-        parse_float_error: ParseFloatError,
+        parse_float_error: LexicalError,
         /// The axis of the offset which could not be parsed.
         axis: Axis,
         /// Line number in the source bvh where the error occurred.
@@ -127,19 +122,11 @@ impl From<io::Error> for LoadJointsError {
     }
 }
 
-impl From<Utf8Error> for LoadJointsError {
-    #[inline]
-    fn from(e: Utf8Error) -> Self {
-        LoadJointsError::Decode(e)
-    }
-}
-
 impl fmt::Display for LoadJointsError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             LoadJointsError::Io(ref e) => fmt::Display::fmt(&e, f),
-            LoadJointsError::Decode(ref e) => fmt::Display::fmt(&e, f),
             LoadJointsError::MissingRoot => f.write_str("The root heirarchy could not be found"),
             LoadJointsError::MissingJointName { line } => f.write_str("Unknown error"),
             LoadJointsError::UnexpectedChannelsSection { line } => f.write_str("Unknown error"),
@@ -160,7 +147,6 @@ impl StdError for LoadJointsError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadJointsError::Io(ref e) => Some(e),
-            LoadJointsError::Decode(ref e) => Some(e),
             LoadJointsError::ParseChannelError { ref error, .. } => Some(error),
             LoadJointsError::ParseOffsetError {
                 ref parse_float_error,
@@ -177,24 +163,22 @@ impl StdError for LoadJointsError {
 pub enum LoadMotionError {
     /// An I/O error occurred.
     Io(io::Error),
-    /// A decoding error occurred.
-    Decode(Utf8Error),
     /// The `MOTION` section is missing in the bvh.
     MissingMotionSection,
     /// The "Number of Frames" section could not be parsed in the bvh.
     MissingNumFrames {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: Option<ParseIntError>,
+        parse_error: Option<LexicalError>,
     },
     /// The "Frame Time" section could not be parsed in the bvh.
     MissingFrameTime {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: Option<ParseFloatError>,
+        parse_error: Option<LexicalError>,
     },
     /// The motion values section could not be parsed in the bvh.
     ParseMotionSection {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: Option<ParseFloatError>,
+        parse_error: Option<LexicalError>,
     },
 }
 
@@ -209,7 +193,6 @@ impl StdError for LoadMotionError {
     fn description(&self) -> &str {
         match *self {
             LoadMotionError::Io(ref e) => e.description(),
-            LoadMotionError::Decode(ref e) => e.description(),
             LoadMotionError::MissingMotionSection => {
                 "the 'MOTION' section of the bvh file is missing"
             }
@@ -227,7 +210,6 @@ impl StdError for LoadMotionError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadMotionError::Io(ref e) => Some(e),
-            LoadMotionError::Decode(ref e) => Some(e),
             LoadMotionError::MissingFrameTime {
                 parse_error: Some(ref e),
             } => Some(e),
@@ -246,13 +228,6 @@ impl From<io::Error> for LoadMotionError {
     #[inline]
     fn from(e: io::Error) -> Self {
         LoadMotionError::Io(e)
-    }
-}
-
-impl From<Utf8Error> for LoadMotionError {
-    #[inline]
-    fn from(e: Utf8Error) -> Self {
-        LoadMotionError::Decode(e)
     }
 }
 
