@@ -802,8 +802,8 @@ impl fmt::Debug for JointMut<'_> {
     }
 }
 
-/// A `Channel` composed of a type and an index to the `Joint` which
-/// owns it.
+/// A `Channel` composed of a `ChannelType` and an index into the
+/// corresponding motion data.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Channel {
     /// The type of the `Channel`.
