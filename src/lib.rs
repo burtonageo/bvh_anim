@@ -146,7 +146,7 @@ impl Bvh {
         write::WriteOptions::default().write(self, writer)
     }
 
-    /// Returns the root bone if it exists, or `None` if the skeleton is empty.
+    /// Returns the root joint if it exists, or `None` if the skeleton is empty.
     #[inline]
     pub fn root_joint(&self) -> Option<Joint<'_>> {
         if self.joints.borrow().is_empty() {
@@ -160,7 +160,7 @@ impl Bvh {
         }
     }
 
-    /// Returns an iterator over all the bones in the `Bvh`.
+    /// Returns an iterator over all the `Joint`s in the `Bvh`.
     #[inline]
     pub fn joints(&self) -> Joints<'_> {
         Joints::iter_root(self)
@@ -410,23 +410,23 @@ impl fmt::Display for Bvh {
 /// better data locality.
 pub type JointName = SmallVec<[u8; 15]>;
 
-/// Internal representation of a bone.
+/// Internal representation of a joint.
 #[derive(Clone)]
 pub enum JointData {
     /// Root of the skeletal heirarchy.
     Root {
-        /// Name of the root bone.
+        /// Name of the root `Joint`.
         name: JointName,
-        /// Positional offset of this bone relative to the parent.
+        /// Positional offset of this `Joint` relative to the parent.
         offset: Vector3<f32>,
         /// The channels applicable to this `Joint`.
         channels: SmallVec<[Channel; 6]>,
     },
     /// A child joint in the skeleton.
     Child {
-        /// Name of the joint bone.
+        /// Name of the `Joint`.
         name: JointName,
-        /// Positional offset of this bone relative to the parent.
+        /// Positional offset of this `Joint` relative to the parent.
         offset: Vector3<f32>,
         /// The channels applicable to this `Joint`.
         channels: SmallVec<[Channel; 3]>,
@@ -469,7 +469,7 @@ impl JointData {
         }
     }
 
-    /// Returns the offset of the bone if it exists, or `None`.
+    /// Returns the offset of the `JointData` if it exists, or `None`.
     #[inline]
     pub fn offset(&self) -> &Vector3<f32> {
         match *self {
@@ -605,11 +605,11 @@ impl JointData {
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct JointPrivateData {
-    /// Index of this bone in the array.
+    /// Index of this `Joint` in the array.
     self_index: usize,
-    /// The parent index in the array of bones in the `Bvh`.
+    /// The parent index in the array of `JointPrivateData`s in the `Bvh`.
     parent_index: usize,
-    /// Depth of the bone. A depth of `0` signifies a bone attached to
+    /// Depth of the `Joint`. A depth of `0` signifies a `Joint` attached to
     /// the root.
     depth: usize,
 }
@@ -715,18 +715,18 @@ impl fmt::Debug for JointsMut<'_> {
     }
 }
 
-/// A view of a bone which provides access to various relevant data.
+/// A view of a joint which provides access to various relevant data.
 pub struct Joint<'a> {
-    /// Index of the bone in the skeleton.
+    /// Index of the `Joint` in the skeleton.
     self_index: usize,
-    /// Skeleton which the bone is part of.
+    /// Skeleton which the joint is part of.
     skeleton: &'a AtomicRefCell<Vec<JointData>>,
     /// Motion clip data relevant to the skeleton.
     clips: &'a AtomicRefCell<Clips>,
 }
 
 impl Joint<'_> {
-    /// Return the parent `Bone` if it exists, or `None` if it doesn't.
+    /// Return the parent `Joint` if it exists, or `None` if it doesn't.
     #[inline]
     pub fn parent(&self) -> Option<Joint<'_>> {
         self.data().parent_index().map(|idx| Joint {
@@ -742,7 +742,7 @@ impl Joint<'_> {
         Joints::iter_children(self.clone())
     }
 
-    /// Access a read-only view of the internal data of the bone.
+    /// Access a read-only view of the internal data of the `Joint`.
     #[inline]
     pub fn data(&self) -> AtomicRef<JointData> {
         AtomicRef::map(self.skeleton.borrow(), |skel| &skel[self.self_index])
@@ -759,14 +759,14 @@ impl fmt::Debug for Joint<'_> {
     }
 }
 
-/// A view of a bone which provides mutable access.
+/// A view of a joint which provides mutable access.
 pub struct JointMut<'a> {
     joint: Joint<'a>,
     _boo: PhantomData<&'a mut ()>,
 }
 
 impl<'a> JointMut<'a> {
-    /// Mutable access to the internal data of the bone.
+    /// Mutable access to the internal data of the `JointMut`.
     #[inline]
     pub fn data_mut(&mut self) -> AtomicRefMut<JointData> {
         AtomicRefMut::map(self.skeleton.borrow_mut(), |skel| {
@@ -774,7 +774,7 @@ impl<'a> JointMut<'a> {
         })
     }
 
-    /// Construct a `BoneMut` from a `Bone`.
+    /// Construct a `JointMut` from a `Joint`.
     #[inline]
     fn from_joint(joint: Joint<'a>) -> Self {
         JointMut {
