@@ -78,7 +78,7 @@ use std::{
     iter::Iterator,
     marker::PhantomData,
     mem,
-    ops::{Deref, DerefMut, Index, IndexMut},
+    ops::{Deref, DerefMut, Index, IndexMut, Range},
     str::{self, FromStr},
     time::Duration,
 };
@@ -1196,19 +1196,8 @@ impl<'a> Iterator for Frames<'a> {
     type Item = &'a Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let nchans = self.clips.num_channels;
-        let nframes = self.clips.num_frames;
-
-        if nframes == 0 || self.curr_frame >= nframes {
-            return None;
-        }
-
-        let start = self.curr_frame * nchans;
-        let end = start + nchans;
-
-        self.curr_frame += 1;
-
-        Some(From::from(&self.clips.data[start..end]))
+        let range = frames_iter_logic(&self.clips, &mut self.curr_frame)?;
+        Some(From::from(&self.clips.data[range]))
     }
 }
 
@@ -1223,26 +1212,31 @@ impl<'a> Iterator for FramesMut<'a> {
     type Item = &'a mut Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let nchans = self.clips.num_channels;
-        let nframes = self.clips.num_frames;
-
-        if nframes == 0 || self.curr_frame >= nframes {
-            return None;
-        }
-
-        let start = self.curr_frame * nchans;
-        let end = start + nchans;
-
-        self.curr_frame += 1;
-
-        let frame_motions = &mut self.clips.data[start..end];
+        let range = frames_iter_logic(&self.clips, &mut self.curr_frame)?;
         unsafe {
             // Cast the anonymous lifetime to the 'a lifetime to avoid E0495.
             Some(mem::transmute::<&mut Frame, &'a mut Frame>(From::from(
-                frame_motions,
+                &mut self.clips.data[range],
             )))
         }
     }
+}
+
+#[inline(always)]
+fn frames_iter_logic(clips: &Clips, curr_frame: &mut usize) -> Option<Range<usize>> {
+    let nchans = clips.num_channels;
+    let nframes = clips.num_frames;
+
+    if nframes == 0 || *curr_frame >= nframes {
+        return None;
+    }
+
+    let start = *curr_frame * nchans;
+    let end = start + nchans;
+
+    *curr_frame += 1;
+
+    Some(Range { start, end })
 }
 
 /// A wrapper for a slice of motion values, so that they can be indexed by `Channel`.
