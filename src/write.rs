@@ -149,11 +149,12 @@ impl Default for IndentStyle {
 }
 
 /// Represents which line terminator style to use when writing a `Bvh` file.
-#[cfg_attr(target_os = "unix", unused)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum LineTerminator {
     /// Use Unix-style line endings (`'\n'`).
     Unix,
+    /// Use Windows-style line endings (`'\r\n'`).
+    Windows,
     /// * On Unix, use Unix-style line endings (`'\n'`).
     /// * On Windows, use Windows-style line endings (`'\r\n'`).
     Native,
@@ -166,6 +167,7 @@ impl LineTerminator {
     pub fn as_str(&self) -> &str {
         match *self {
             LineTerminator::Unix => "\n",
+            LineTerminator::Windows |
             LineTerminator::Native => "\r\n",
         }
     }
@@ -176,7 +178,11 @@ impl LineTerminator {
     /// Return the characters of the `LineTerminator` as a `str`.
     #[inline]
     pub fn as_str(&self) -> &str {
-        "\n"
+        match *self {
+            LineTerminator::Native |
+            LineTerminator::Unix => "\n",
+            LineTerminator::Windows => "\r\n",
+        }
     }
 }
 
