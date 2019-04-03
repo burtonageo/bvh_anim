@@ -74,7 +74,7 @@ use smallstring::SmallString;
 use smallvec::SmallVec;
 use std::{
     fmt,
-    io::{self, BufRead, Write},
+    io::{self, Cursor, BufRead, Write},
     iter::Iterator,
     marker::PhantomData,
     mem,
@@ -110,6 +110,11 @@ impl Bvh {
     #[inline]
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
+    pub fn from_byte_string<B: AsRef<[u8]>>(bytes: B) -> Result<Self, LoadError> {
+        Bvh::load(Cursor::new(bytes))
     }
 
     /// Loads the `Bvh` from the `reader`.
