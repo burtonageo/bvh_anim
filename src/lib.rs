@@ -960,7 +960,7 @@ impl Clips {
             })
             .and_then(|l| Ok(l?))
             .and_then(|line| {
-                let mut tokens = line.split(|c| c == ' ' || c == '\t');
+                let mut tokens = line.split(|c: char| c.is_ascii_whitespace());
 
                 let frames_kw = tokens.next();
                 if frames_kw == Some(FRAMES_KEYWORD) {
@@ -1167,16 +1167,25 @@ impl<'a> Iterator for FramesMut<'a> {
 }
 
 /// A wrapper for a slice of motion values, so that they can be indexed by `Channel`.
-#[derive(Debug)]
+#[derive(PartialEq)]
 pub struct Frame([f32]);
 
+impl fmt::Debug for Frame {
+    #[inline]
+    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, fmtr)
+    }
+}
+
 impl<'a> From<&'a [f32]> for &'a Frame {
+    #[inline]
     fn from(frame_motions: &'a [f32]) -> Self {
         unsafe { &*(frame_motions as *const [f32] as *const Frame) }
     }
 }
 
 impl<'a> From<&'a mut [f32]> for &'a mut Frame {
+    #[inline]
     fn from(frame_motions: &'a mut [f32]) -> Self {
         unsafe { &mut *(frame_motions as *mut [f32] as *mut Frame) }
     }
