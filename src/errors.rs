@@ -231,11 +231,13 @@ impl From<io::Error> for LoadMotionError {
     }
 }
 
+/// Represents an error which may occur when attempting to parse a
+/// `BString` into a `ChannelType`.
 #[derive(Debug)]
 pub struct ParseChannelError(
     // @TODO(burtonageo): Borrow the erroneous string when hrts
     // land.
-    pub(crate) BString,
+    BString,
 );
 
 impl<S: Into<BString>> From<S> for ParseChannelError {
