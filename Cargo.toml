@@ -12,3 +12,7 @@ lexical = "2.1"
 mint = "0.5"
 smallstring = "0.1"
 smallvec = "0.6"
+
+[dev-dependencies]
+winit = "0.19"
+wgpu = "0.2"
