@@ -63,10 +63,7 @@ impl WriteOptions {
 
     #[inline]
     pub fn with_indent(self, indent: IndentStyle) -> Self {
-        WriteOptions {
-            indent,
-            ..self
-        }
+        WriteOptions { indent, ..self }
     }
 
     #[inline]
