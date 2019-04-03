@@ -461,6 +461,92 @@ impl fmt::Debug for JointData {
 }
 
 impl JointData {
+    /// Returns the name of the `JointData`.
+    #[inline]
+    pub fn name(&self) -> &BStr {
+        match *self {
+            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => B(&name[..]),
+        }
+    }
+
+    /// Returns the offset of the bone if it exists, or `None`.
+    #[inline]
+    pub fn offset(&self) -> &Vector3<f32> {
+        match *self {
+            JointData::Child { ref offset, .. } | JointData::Root { ref offset, .. } => offset,
+        }
+    }
+
+    /// Returns the `end_site_offset` if this `Joint` has an end site, or `None` if
+    /// it doesn't.
+    #[inline]
+    pub fn end_site(&self) -> Option<&Vector3<f32>> {
+        match *self {
+            JointData::Child {
+                ref end_site_offset,
+                ..
+            } => end_site_offset.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Returns `true` if the `Joint` has an `end_site_offset`, or `None` if it doesn't.
+    #[inline]
+    pub fn has_end_site(&self) -> bool {
+        self.end_site().is_some()
+    }
+
+    /// Returns the ordered array of `Channel`s of this `JointData`.
+    #[inline]
+    pub fn channels(&self) -> &[Channel] {
+        match *self {
+            JointData::Child { ref channels, .. } => &channels[..],
+            JointData::Root { ref channels, .. } => &channels[..],
+        }
+    }
+
+    /// Returns a mutable reference to ordered array of `Channel`s of this `JointData`.
+    #[inline]
+    pub fn channels_mut(&mut self) -> &mut [Channel] {
+        match *self {
+            JointData::Child {
+                ref mut channels, ..
+            } => &mut channels[..],
+            JointData::Root {
+                ref mut channels, ..
+            } => &mut channels[..],
+        }
+    }
+
+    /// Returns the total number of channels applicable to this `JointData`.
+    #[inline]
+    pub fn num_channels(&self) -> usize {
+        self.channels().len()
+    }
+
+    /// Return the index of this `Joint` in the array.
+    #[inline]
+    fn index(&self) -> usize {
+        self.private_data().map(|d| d.self_index).unwrap_or(0)
+    }
+
+    /// Returns the index of the parent `JointData`, or `None` if this `JointData` is the
+    /// root joint.
+    #[inline]
+    fn parent_index(&self) -> Option<usize> {
+        self.private_data().map(|d| d.parent_index)
+    }
+
+    /// Returns a reference to the `JointPrivateData` of the `JointData` if it
+    /// exists, or `None`.
+    #[inline]
+    fn private_data(&self) -> Option<&JointPrivateData> {
+        match *self {
+            JointData::Child { ref private, .. } => Some(private),
+            _ => None,
+        }
+    }
+
     fn empty_root() -> Self {
         JointData::Root {
             name: Default::default(),
@@ -552,94 +638,6 @@ impl JointPrivateData {
 impl fmt::Debug for JointPrivateData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("JointPrivateData { .. }")
-    }
-}
-
-impl JointData {
-    /// Returns the name of the `JointData`.
-    #[inline]
-    pub fn name(&self) -> &BStr {
-        match *self {
-            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => B(&name[..]),
-        }
-    }
-
-    /// Returns the offset of the bone if it exists, or `None`.
-    #[inline]
-    pub fn offset(&self) -> &Vector3<f32> {
-        match *self {
-            JointData::Child { ref offset, .. } | JointData::Root { ref offset, .. } => offset,
-        }
-    }
-
-    /// Returns the `end_site_offset` if this `Joint` has an end site, or `None` if
-    /// it doesn't.
-    #[inline]
-    pub fn end_site(&self) -> Option<&Vector3<f32>> {
-        match *self {
-            JointData::Child {
-                ref end_site_offset,
-                ..
-            } => end_site_offset.as_ref(),
-            _ => None,
-        }
-    }
-
-    /// Returns `true` if the `Joint` has an `end_site_offset`, or `None` if it doesn't.
-    #[inline]
-    pub fn has_end_site(&self) -> bool {
-        self.end_site().is_some()
-    }
-
-    /// Returns the ordered array of `Channel`s of this `JointData`.
-    #[inline]
-    pub fn channels(&self) -> &[Channel] {
-        match *self {
-            JointData::Child { ref channels, .. } => &channels[..],
-            JointData::Root { ref channels, .. } => &channels[..],
-        }
-    }
-
-    /// Returns a mutable reference to ordered array of `Channel`s of this `JointData`.
-    #[inline]
-    pub fn channels_mut(&mut self) -> &mut [Channel] {
-        match *self {
-            JointData::Child {
-                ref mut channels, ..
-            } => &mut channels[..],
-            JointData::Root {
-                ref mut channels, ..
-            } => &mut channels[..],
-        }
-    }
-
-    /// Returns the total number of channels applicable to this `JointData`.
-    #[inline]
-    pub fn num_channels(&self) -> usize {
-        self.channels().len()
-    }
-
-    /// Return the index of this `Joint` in the array.
-    #[inline]
-    fn index(&self) -> usize {
-        self.private_data().map(|d| d.self_index).unwrap_or(0)
-    }
-
-    /// Returns the index of the parent `JointData`, or `None` if this `JointData` is the
-    /// root joint.
-    #[inline]
-    fn parent_index(&self) -> Option<usize> {
-        self.private_data().map(|d| d.parent_index)
-    }
-
-    /// Returns a reference to the `JointPrivateData` of the `JointData` if it
-    /// exists, or `None`.
-    #[inline]
-    fn private_data(&self) -> Option<&JointPrivateData> {
-        match *self {
-            JointData::Child { ref private, .. } => Some(private),
-            _ => None,
-        }
     }
 }
 
