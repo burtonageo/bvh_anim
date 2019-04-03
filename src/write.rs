@@ -167,8 +167,7 @@ impl LineTerminator {
     pub fn as_str(&self) -> &str {
         match *self {
             LineTerminator::Unix => "\n",
-            LineTerminator::Windows |
-            LineTerminator::Native => "\r\n",
+            LineTerminator::Windows | LineTerminator::Native => "\r\n",
         }
     }
 }
@@ -179,8 +178,7 @@ impl LineTerminator {
     #[inline]
     pub fn as_str(&self) -> &str {
         match *self {
-            LineTerminator::Native |
-            LineTerminator::Unix => "\n",
+            LineTerminator::Native | LineTerminator::Unix => "\n",
             LineTerminator::Windows => "\r\n",
         }
     }

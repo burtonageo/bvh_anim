@@ -1,3 +1,4 @@
+use bstr::{BString, Utf8Error};
 use crate::Axis;
 use std::{
     error::Error as StdError,
@@ -60,6 +61,8 @@ impl From<LoadMotionError> for LoadError {
 pub enum LoadJointsError {
     /// An I/O error occurred.
     Io(io::Error),
+    /// A decoding error occurred.
+    Decode(Utf8Error),
     /// The skeletal hierarchy is missing the `Root` joint.
     MissingRoot,
     /// A name could not be found for the `Joint`.
@@ -124,11 +127,19 @@ impl From<io::Error> for LoadJointsError {
     }
 }
 
+impl From<Utf8Error> for LoadJointsError {
+    #[inline]
+    fn from(e: Utf8Error) -> Self {
+        LoadJointsError::Decode(e)
+    }
+}
+
 impl fmt::Display for LoadJointsError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             LoadJointsError::Io(ref e) => fmt::Display::fmt(&e, f),
+            LoadJointsError::Decode(ref e) => fmt::Display::fmt(&e, f),
             LoadJointsError::MissingRoot => f.write_str("The root heirarchy could not be found"),
             LoadJointsError::MissingJointName { line } => f.write_str("Unknown error"),
             LoadJointsError::UnexpectedChannelsSection { line } => f.write_str("Unknown error"),
@@ -149,6 +160,7 @@ impl StdError for LoadJointsError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadJointsError::Io(ref e) => Some(e),
+            LoadJointsError::Decode(ref e) => Some(e),
             LoadJointsError::ParseChannelError { ref error, .. } => Some(error),
             LoadJointsError::ParseOffsetError {
                 ref parse_float_error,
@@ -165,6 +177,8 @@ impl StdError for LoadJointsError {
 pub enum LoadMotionError {
     /// An I/O error occurred.
     Io(io::Error),
+    /// A decoding error occurred.
+    Decode(Utf8Error),
     /// The `MOTION` section is missing in the bvh.
     MissingMotionSection,
     /// The "Number of Frames" section could not be parsed in the bvh.
@@ -195,6 +209,7 @@ impl StdError for LoadMotionError {
     fn description(&self) -> &str {
         match *self {
             LoadMotionError::Io(ref e) => e.description(),
+            LoadMotionError::Decode(ref e) => e.description(),
             LoadMotionError::MissingMotionSection => {
                 "the 'MOTION' section of the bvh file is missing"
             }
@@ -212,6 +227,7 @@ impl StdError for LoadMotionError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadMotionError::Io(ref e) => Some(e),
+            LoadMotionError::Decode(ref e) => Some(e),
             LoadMotionError::MissingFrameTime {
                 parse_error: Some(ref e),
             } => Some(e),
@@ -233,12 +249,26 @@ impl From<io::Error> for LoadMotionError {
     }
 }
 
+impl From<Utf8Error> for LoadMotionError {
+    #[inline]
+    fn from(e: Utf8Error) -> Self {
+        LoadMotionError::Decode(e)
+    }
+}
+
 #[derive(Debug)]
 pub struct ParseChannelError(
     // @TODO(burtonageo): Borrow the erroneous string when hrts
     // land.
-    pub(crate) String,
+    pub(crate) BString,
 );
+
+impl<S: Into<BString>> From<S> for ParseChannelError {
+    #[inline]
+    fn from(s: S) -> Self {
+        ParseChannelError(s.into())
+    }
+}
 
 impl fmt::Display for ParseChannelError {
     #[inline]

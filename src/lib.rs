@@ -69,12 +69,12 @@ mod errors;
 pub mod write;
 
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
+use bstr::{io::BufReadExt, BStr, B};
 use mint::Vector3;
-use smallstring::SmallString;
 use smallvec::SmallVec;
 use std::{
     fmt,
-    io::{self, Cursor, BufRead, Write},
+    io::{self, BufRead, Cursor, Write},
     iter::Iterator,
     marker::PhantomData,
     mem,
@@ -87,8 +87,14 @@ pub use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError}
 
 /// Loads the `Bvh` from the `reader`.
 #[inline]
-pub fn load<R: BufRead>(data: R) -> Result<Bvh, LoadError> {
+pub fn load<R: BufReadExt>(data: R) -> Result<Bvh, LoadError> {
     Bvh::load(data)
+}
+
+/// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
+#[inline]
+pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
+    Bvh::parse(bytes)
 }
 
 /// A complete `bvh` file.
@@ -113,14 +119,14 @@ impl Bvh {
     }
 
     /// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
-    pub fn from_byte_string<B: AsRef<[u8]>>(bytes: B) -> Result<Self, LoadError> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Self, LoadError> {
         Bvh::load(Cursor::new(bytes))
     }
 
     /// Loads the `Bvh` from the `reader`.
-    pub fn load<R: BufRead>(mut reader: R) -> Result<Self, LoadError> {
+    pub fn load<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
         let (joints, num_channels) = Bvh::read_joints(reader.by_ref())
-            .map(|(jts, chnls)| (AtomicRefCell::new(jts), chnls))?;
+            .map(|result| (AtomicRefCell::new(result.0), result.1))?;
         let clips = Clips::read_motion(reader.by_ref(), num_channels).map(AtomicRefCell::new)?;
 
         Ok(Bvh { joints, clips })
@@ -180,18 +186,20 @@ impl Bvh {
     }
 
     /// Non-monomorphised logic for parsing the data from a `BufRead`.
-    fn read_joints(reader: &mut dyn BufRead) -> Result<(Vec<JointData>, usize), LoadJointsError> {
-        const HEIRARCHY_KEYWORD: &str = "HIERARCHY";
+    fn read_joints(
+        reader: &mut dyn BufReadExt,
+    ) -> Result<(Vec<JointData>, usize), LoadJointsError> {
+        const HEIRARCHY_KEYWORD: &[u8] = b"HIERARCHY";
 
-        const ROOT_KEYWORD: &str = "ROOT";
-        const JOINT_KEYWORD: &str = "JOINT";
-        const ENDSITE_KEYWORDS: &[&str] = &["End", "Site"];
+        const ROOT_KEYWORD: &[u8] = b"ROOT";
+        const JOINT_KEYWORD: &[u8] = b"JOINT";
+        const ENDSITE_KEYWORDS: &[&[u8]] = &[b"End", b"Site"];
 
-        const OPEN_BRACE: &str = "{";
-        const CLOSE_BRACE: &str = "}";
+        const OPEN_BRACE: &[u8] = b"{";
+        const CLOSE_BRACE: &[u8] = b"}";
 
-        const OFFSET_KEYWORD: &str = "OFFSET";
-        const CHANNELS_KEYWORD: &str = "CHANNELS";
+        const OFFSET_KEYWORD: &[u8] = b"OFFSET";
+        const CHANNELS_KEYWORD: &[u8] = b"CHANNELS";
 
         #[derive(Debug, Eq, PartialEq)]
         enum ParseMode {
@@ -219,12 +227,12 @@ impl Bvh {
         let mut in_end_site = false;
         let mut pushed_end_site_joint = false;
 
-        let lines = reader.lines();
+        let lines = reader.byte_lines();
         for (line_num, line) in lines.enumerate() {
             let line = line?;
             let line = line.trim();
 
-            let mut tokens = line.split(|c: char| c.is_ascii_whitespace() || c == ':');
+            let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
 
             let first_token = match tokens.next() {
                 Some(tok) => tok,
@@ -242,7 +250,7 @@ impl Bvh {
                 }
 
                 if let Some(tok) = tokens.next() {
-                    curr_joint.set_name(From::from(tok));
+                    curr_joint.set_name(tok.bytes().collect());
                     continue;
                 }
             }
@@ -276,7 +284,9 @@ impl Bvh {
                 }
             }
 
-            if first_token == ENDSITE_KEYWORDS[0] && tokens.next() == Some(ENDSITE_KEYWORDS[1]) {
+            if first_token == ENDSITE_KEYWORDS[0]
+                && tokens.next().map(BStr::as_bytes) == Some(ENDSITE_KEYWORDS[1])
+            {
                 in_end_site = true;
             }
 
@@ -305,7 +315,7 @@ impl Bvh {
                 }
 
                 if let Some(name) = tokens.next() {
-                    curr_joint.set_name(From::from(name));
+                    curr_joint.set_name(name.bytes().collect());
                 }
             }
 
@@ -319,12 +329,13 @@ impl Bvh {
                 macro_rules! parse_axis {
                     ($axis_field:ident, $axis_enum:ident) => {
                         if let Some(tok) = tokens.next() {
-                            offset.$axis_field =
-                                str::parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
+                            offset.$axis_field = str::parse(tok.to_str()?).map_err(|e| {
+                                LoadJointsError::ParseOffsetError {
                                     parse_float_error: e,
                                     axis: Axis::$axis_enum,
                                     line: line_num,
-                                })?;
+                                }
+                            })?;
                         } else {
                             return Err(LoadJointsError::MissingOffsetAxis {
                                 axis: Axis::$axis_enum,
@@ -347,7 +358,7 @@ impl Bvh {
                 }
 
                 let num_channels: usize = if let Some(tok) = tokens.next() {
-                    str::parse(tok).unwrap()
+                    str::parse(tok.to_str()?).unwrap()
                 } else {
                     panic!("Num channels not found!");
                 };
@@ -356,11 +367,12 @@ impl Bvh {
                 channels.reserve(num_channels);
 
                 while let Some(tok) = tokens.next() {
-                    let channel_ty =
-                        str::parse(tok).map_err(|e| LoadJointsError::ParseChannelError {
+                    let channel_ty = str::parse(tok.to_str()?).map_err(|e| {
+                        LoadJointsError::ParseChannelError {
                             error: e,
                             line: line_num,
-                        })?;
+                        }
+                    })?;
                     let channel = Channel::new(channel_ty, curr_channel);
                     curr_channel += 1;
                     channels.push(channel);
@@ -394,12 +406,12 @@ impl fmt::Display for Bvh {
     }
 }
 
-/// A string type for the `Joint` name. A `SmallString` is used for
+/// A string type for the `Joint` name. A `SmallVec` is used for
 /// better data locality.
-pub type JointName = SmallString<[u8; 24]>;
+pub type JointName = SmallVec<[u8; 15]>;
 
 /// Internal representation of a bone.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum JointData {
     /// Root of the skeletal heirarchy.
     Root {
@@ -424,6 +436,28 @@ pub enum JointData {
         #[doc(hidden)]
         private: JointPrivateData,
     },
+}
+
+impl fmt::Debug for JointData {
+    #[inline]
+    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            JointData::Root { .. } => fmtr
+                .debug_struct("Root")
+                .field("name", &self.name())
+                .field("offset", &self.offset())
+                .field("channels", &self.channels())
+                .finish(),
+            JointData::Child { ref private, .. } => fmtr
+                .debug_struct("Child")
+                .field("name", &self.name())
+                .field("offset", &self.offset())
+                .field("channels", &self.channels())
+                .field("end_site_offset", &self.end_site())
+                .field("private", &private)
+                .finish(),
+        }
+    }
 }
 
 impl JointData {
@@ -524,9 +558,9 @@ impl fmt::Debug for JointPrivateData {
 impl JointData {
     /// Returns the name of the `JointData`.
     #[inline]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &BStr {
         match *self {
-            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => &*name,
+            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => B(&name[..]),
         }
     }
 
@@ -913,21 +947,28 @@ impl Axis {
     }
 }
 
+impl ChannelType {
+    #[inline]
+    pub fn from_bstr(s: &BStr) -> Result<Self, ParseChannelError> {
+        match s.as_bytes() {
+            b"Xrotation" => Ok(ChannelType::RotationX),
+            b"Yrotation" => Ok(ChannelType::RotationY),
+            b"Zrotation" => Ok(ChannelType::RotationZ),
+
+            b"Xposition" => Ok(ChannelType::PositionX),
+            b"Yposition" => Ok(ChannelType::PositionY),
+            b"Zposition" => Ok(ChannelType::PositionZ),
+
+            _ => Err(ParseChannelError::from(s)),
+        }
+    }
+}
+
 impl FromStr for ChannelType {
     type Err = ParseChannelError;
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Xrotation" => Ok(ChannelType::RotationX),
-            "Yrotation" => Ok(ChannelType::RotationY),
-            "Zrotation" => Ok(ChannelType::RotationZ),
-
-            "Xposition" => Ok(ChannelType::PositionX),
-            "Yposition" => Ok(ChannelType::PositionY),
-            "Zposition" => Ok(ChannelType::PositionZ),
-
-            _ => Err(ParseChannelError(From::from(s))),
-        }
+        ChannelType::from_bstr(From::from(s))
     }
 }
 
@@ -968,13 +1009,13 @@ impl Clips {
             (x * NSEC_FACTOR) as u64
         }
 
-        const MOTION_KEYWORD: &str = "MOTION";
-        const FRAMES_KEYWORD: &str = "Frames:";
-        const FRAME_TIME_KEYWORDS: &[&str] = &[&"Frame", &"Time:"];
+        const MOTION_KEYWORD: &[u8] = b"MOTION";
+        const FRAMES_KEYWORD: &[u8] = b"Frames:";
+        const FRAME_TIME_KEYWORDS: &[&[u8]] = &[b"Frame", b"Time:"];
 
         let mut out_clips = Clips::default();
         out_clips.num_channels = num_channels;
-        let mut lines = reader.lines();
+        let mut lines = reader.byte_lines();
 
         lines
             .next()
@@ -993,19 +1034,18 @@ impl Clips {
             .ok_or(LoadMotionError::MissingNumFrames { parse_error: None })
             .and_then(|l| Ok(l?))
             .and_then(|line| {
-                let mut tokens = line.split(|c: char| c.is_ascii_whitespace());
+                let mut tokens = line.fields();
 
                 let frames_kw = tokens.next();
-                if frames_kw == Some(FRAMES_KEYWORD) {
+                if frames_kw.map(BStr::as_bytes) == Some(FRAMES_KEYWORD) {
                     // do nothing
                 } else {
                     return Err(LoadMotionError::MissingNumFrames { parse_error: None });
                 }
 
-                let parse_num_frames = |token| {
+                let parse_num_frames = |token: Option<&BStr>| {
                     if let Some(num_frames) = token {
-                        println!("{:?}", num_frames);
-                        str::parse::<usize>(num_frames)
+                        str::parse::<usize>(num_frames.to_str()?)
                             .map_err(|e| LoadMotionError::MissingNumFrames {
                                 parse_error: Some(e),
                             })
@@ -1016,7 +1056,7 @@ impl Clips {
                 };
 
                 match tokens.next() {
-                    Some(":") => parse_num_frames(tokens.next()),
+                    Some(tok) if tok == B(":") => parse_num_frames(tokens.next()),
                     Some(tok) => parse_num_frames(Some(tok)),
                     None => Err(LoadMotionError::MissingNumFrames { parse_error: None }),
                 }
@@ -1027,29 +1067,30 @@ impl Clips {
             .ok_or(LoadMotionError::MissingFrameTime { parse_error: None })
             .and_then(|l| Ok(l?))
             .and_then(|line| {
-                let mut tokens = line.split(|c: char| c.is_ascii_whitespace());
+                let mut tokens = line.fields();
 
                 let frame_time_kw = tokens.next();
-                if frame_time_kw.as_ref() == FRAME_TIME_KEYWORDS.get(0) {
+                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(0).map(|b| *b) {
                     // do nothing
                 } else {
                     return Err(LoadMotionError::MissingFrameTime { parse_error: None });
                 }
 
                 let frame_time_kw = tokens.next();
-                if frame_time_kw.as_ref() == FRAME_TIME_KEYWORDS.get(1) {
+                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(1).map(|b| *b) {
                     // do nothing
                 } else {
                     return Err(LoadMotionError::MissingFrameTime { parse_error: None });
                 }
 
-                let parse_num_frames = |token| {
+                let parse_frame_time = |token: Option<&BStr>| {
                     if let Some(frame_time) = token {
-                        let frame_time_secs = str::parse::<f64>(frame_time).map_err(|e| {
-                            LoadMotionError::MissingFrameTime {
-                                parse_error: Some(e),
-                            }
-                        })?;
+                        let frame_time_secs =
+                            str::parse::<f64>(frame_time.to_str()?).map_err(|e| {
+                                LoadMotionError::MissingFrameTime {
+                                    parse_error: Some(e),
+                                }
+                            })?;
                         Ok(Duration::from_nanos(fraction_seconds_to_nanoseconds(
                             frame_time_secs,
                         )))
@@ -1059,8 +1100,8 @@ impl Clips {
                 };
 
                 match tokens.next() {
-                    Some(":") => parse_num_frames(tokens.next()),
-                    Some(tok) => parse_num_frames(Some(tok)),
+                    Some(tok) if tok == B(":") => parse_frame_time(tokens.next()),
+                    Some(tok) => parse_frame_time(Some(tok)),
                     None => Err(LoadMotionError::MissingNumFrames { parse_error: None }),
                 }
             })?;
@@ -1068,17 +1109,25 @@ impl Clips {
         out_clips
             .data
             .reserve(out_clips.num_channels * out_clips.num_frames);
+
         for line in lines {
             let line = line?;
-            let tokens = line.split_whitespace();
+            let tokens = line.fields();
             for token in tokens {
-                let motion: f32 =
-                    str::parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
+                let motion: f32 = str::parse(token.to_str()?).map_err(|e| {
+                    LoadMotionError::ParseMotionSection {
                         parse_error: Some(e),
-                    })?;
+                    }
+                })?;
                 out_clips.data.push(motion);
             }
         }
+
+        // @TODO(burtonageo): assert
+        assert_eq!(
+            out_clips.data.len(),
+            out_clips.num_channels * out_clips.num_frames
+        );
 
         Ok(out_clips)
     }
