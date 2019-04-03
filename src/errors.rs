@@ -1,26 +1,37 @@
 use crate::Axis;
-use std::{error::Error as StdError, fmt, io, num::{ParseFloatError, ParseIntError}};
+use std::{
+    error::Error as StdError,
+    fmt, io,
+    num::{ParseFloatError, ParseIntError},
+};
 
+/// Errors which may arise when loading a `Bvh` file from
+/// a `Reader`.
 #[derive(Debug)]
 pub enum LoadError {
+    /// An error occurred when loading the joints hierarchy.
     Joints(LoadJointsError),
+    /// An error occurred when loading the motion values.
     Motion(LoadMotionError),
 }
 
 impl fmt::Display for LoadError {
+    #[inline]
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            LoadError::Joints(ref e) => {
-                write!(fmtr, "Could not load hierarchy: {}", e)
-            }
-            LoadError::Motion(ref e) => {
-                write!(fmtr, "Could not load motion: {}", e)
-            }
-        }
+        write!(fmtr, "{}: {}", self.description(), self.source().unwrap())
     }
 }
 
 impl StdError for LoadError {
+    #[inline]
+    fn description(&self) -> &str {
+        match *self {
+            LoadError::Joints(_) => "Could not load hierarchy",
+            LoadError::Motion(_) => "Could not load motion",
+        }
+    }
+
+    #[inline]
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadError::Joints(ref e) => Some(e),
@@ -43,30 +54,50 @@ impl From<LoadMotionError> for LoadError {
     }
 }
 
+/// Represents an error which occurred when loading the `Joints` of the
+/// bvh file.
 #[derive(Debug)]
 pub enum LoadJointsError {
+    /// An I/O error occurred.
     Io(io::Error),
+    /// The skeletal hierarchy is missing the `Root` joint.
     MissingRoot,
+    /// A name could not be found for the `Joint`.
     MissingJointName {
+        /// Line number in the source bvh where the error occurred.
         line: usize,
     },
+    /// A `CHANNELS` section was encountered in the wrong location.
     UnexpectedChannelsSection {
+        /// Line number in the source bvh where the error occurred.
         line: usize,
     },
+    /// A channel type could not be parsed in the `CHANNELS` section.
     ParseChannelError {
+        /// The parse error.
         error: ParseChannelError,
+        /// Line number in the source bvh where the error occurred.
         line: usize,
     },
+    /// An `OFFSET` section was encountered in the wrong location.
     UnexpectedOffsetSection {
+        /// Line number in the source bvh where the error occurred.
         line: usize,
     },
+    /// An axis in the `OFFSET` section could not be parsed into a value.
     ParseOffsetError {
+        /// The parse error.
         parse_float_error: ParseFloatError,
+        /// The axis of the offset which could not be parsed.
         axis: Axis,
+        /// Line number in the source bvh where the error occurred.
         line: usize,
     },
+    /// An `OFFSET` section was missing an axis in the offset vector.
     MissingOffsetAxis {
+        /// The smallest axis which was missing.
         axis: Axis,
+        /// Line number in the source bvh where the error occurred.
         line: usize,
     },
 }
@@ -128,19 +159,29 @@ impl StdError for LoadJointsError {
     }
 }
 
+/// Represents an error which occurred when loading the motion of the
+/// bvh file.
 #[derive(Debug)]
 pub enum LoadMotionError {
+    /// An I/O error occurred.
     Io(io::Error),
+    /// The `MOTION` section is missing in the bvh.
     MissingMotionSection,
+    /// The "Number of Frames" section could not be parsed in the bvh.
     MissingNumFrames {
+        /// The parse error, or `None` if there was no number to be parsed.
         parse_error: Option<ParseIntError>,
     },
+    /// The "Frame Time" section could not be parsed in the bvh.
     MissingFrameTime {
+        /// The parse error, or `None` if there was no number to be parsed.
         parse_error: Option<ParseFloatError>,
     },
+    /// The motion values section could not be parsed in the bvh.
     ParseMotionSection {
+        /// The parse error, or `None` if there was no number to be parsed.
         parse_error: Option<ParseFloatError>,
-    }
+    },
 }
 
 impl fmt::Display for LoadMotionError {
@@ -150,18 +191,36 @@ impl fmt::Display for LoadMotionError {
 }
 
 impl StdError for LoadMotionError {
+    #[inline]
+    fn description(&self) -> &str {
+        match *self {
+            LoadMotionError::Io(ref e) => e.description(),
+            LoadMotionError::MissingMotionSection => {
+                "the 'MOTION' section of the bvh file is missing"
+            }
+            LoadMotionError::MissingNumFrames { .. } => {
+                "the number of frames section is missing from the bvh file"
+            }
+            LoadMotionError::MissingFrameTime { .. } => {
+                "the frame time is missing from the bvh file"
+            }
+            LoadMotionError::ParseMotionSection { .. } => "could not parse the motion value",
+        }
+    }
+
+    #[inline]
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadMotionError::Io(ref e) => Some(e),
-            LoadMotionError::MissingFrameTime { parse_error: Some(ref e) } => {
-                Some(e)
-            },
-            LoadMotionError::ParseMotionSection { parse_error: Some(ref e) } => {
-                Some(e)
-            }
-            LoadMotionError::MissingNumFrames { parse_error: Some(ref e) } => {
-                Some(e)
-            }
+            LoadMotionError::MissingFrameTime {
+                parse_error: Some(ref e),
+            } => Some(e),
+            LoadMotionError::ParseMotionSection {
+                parse_error: Some(ref e),
+            } => Some(e),
+            LoadMotionError::MissingNumFrames {
+                parse_error: Some(ref e),
+            } => Some(e),
             _ => None,
         }
     }
