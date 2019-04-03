@@ -1018,8 +1018,8 @@ impl Clips {
         lines
             .next()
             .ok_or(LoadMotionError::MissingMotionSection)
-            .and_then(|l| Ok(l?))
             .and_then(|line| {
+                let line = line?;
                 if line == MOTION_KEYWORD {
                     Ok(())
                 } else {
@@ -1030,8 +1030,8 @@ impl Clips {
         out_clips.num_frames = lines
             .next()
             .ok_or(LoadMotionError::MissingNumFrames { parse_error: None })
-            .and_then(|l| Ok(l?))
             .and_then(|line| {
+                let line = line?;
                 let mut tokens = line.fields();
 
                 let frames_kw = tokens.next();
@@ -1063,8 +1063,8 @@ impl Clips {
         out_clips.frame_time = lines
             .next()
             .ok_or(LoadMotionError::MissingFrameTime { parse_error: None })
-            .and_then(|l| Ok(l?))
             .and_then(|line| {
+                let line = line?;
                 let mut tokens = line.fields();
 
                 let frame_time_kw = tokens.next();
