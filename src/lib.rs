@@ -16,7 +16,7 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #![allow(dead_code)]
-#![warn(unused_imports)]
+#![warn(unused_imports, missing_docs)]
 
 //! A small library for loading and manipulating BioVision motion files.
 //!

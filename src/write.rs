@@ -64,11 +64,13 @@ impl WriteOptions {
         out_string
     }
 
+    /// Sets `indent` on `self` to the new `IndentStyle`.
     #[inline]
     pub fn with_indent(self, indent: IndentStyle) -> Self {
         WriteOptions { indent, ..self }
     }
 
+    /// Sets `line_terminator` on `self` to the new `LineTerminator`.
     #[inline]
     pub fn with_line_terminator(self, line_terminator: LineTerminator) -> Self {
         WriteOptions {
