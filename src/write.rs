@@ -2,6 +2,7 @@
 
 //! Contains options for `bvh` file formatting.
 
+use bstr::{BStr, BString, B};
 use crate::Bvh;
 use std::{
     fmt,
@@ -30,7 +31,7 @@ impl WriteOptions {
 
     /// Output the `Bvh` file to the `writer` with the given options.
     pub fn write<W: Write>(&self, bvh: &Bvh, writer: &mut W) -> io::Result<()> {
-        let mut curr_line = String::new();
+        let mut curr_line = BString::new();
         let mut curr_bytes_written = 0usize;
         let mut curr_string_len = 0usize;
         let mut iter_state = WriteOptionsIterState::new(bvh);
@@ -51,13 +52,13 @@ impl WriteOptions {
     }
 
     /// Output the `Bvh` file to the `string` with the given options.
-    pub fn write_to_string(&self, bvh: &Bvh) -> String {
-        let mut curr_line = String::new();
-        let mut out_string = String::new();
+    pub fn write_to_string(&self, bvh: &Bvh) -> BString {
+        let mut curr_line = BString::new();
+        let mut out_string = BString::new();
         let mut iter_state = WriteOptionsIterState::new(bvh);
 
         while self.next_line(bvh, &mut curr_line, &mut iter_state) != false {
-            out_string.push_str(&curr_line);
+            out_string.push(&curr_line);
         }
 
         out_string
@@ -87,7 +88,7 @@ impl WriteOptions {
     fn next_line(
         &self,
         bvh: &Bvh,
-        line: &mut String,
+        line: &mut BString,
         iter_state: &mut WriteOptionsIterState,
     ) -> bool {
         line.clear();
@@ -169,13 +170,13 @@ impl LineTerminator {
     #[inline]
     pub fn native() -> Self {
         LineTerminator::Windows
-}
+    }
 
     /// Get the line terminator style native to the current OS:
     ///
     /// * On Windows, this returns `LineTerminator::Windows`.
     /// * Otherwise, this returns `LineTerminator::Unix`.
-#[cfg(not(target_os = "windows"))]
+    #[cfg(not(target_os = "windows"))]
     #[inline]
     pub fn native() -> Self {
         LineTerminator::Unix
