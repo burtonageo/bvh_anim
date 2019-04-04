@@ -145,6 +145,7 @@ impl IndentStyle {
 
 /// Create a new `IndentStyle` using a single tab.
 impl Default for IndentStyle {
+    #[inline]
     fn default() -> Self {
         IndentStyle::Tabs
     }
