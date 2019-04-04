@@ -854,6 +854,23 @@ pub enum ChannelType {
 }
 
 impl ChannelType {
+    /// Attempt to parse a bvh channel string into a `ChannelType`.
+    /// Returns `Err` if the string cannot be parsed.
+    #[inline]
+    pub fn from_bstr(s: &BStr) -> Result<Self, ParseChannelError> {
+        match s.as_bytes() {
+            b"Xrotation" => Ok(ChannelType::RotationX),
+            b"Yrotation" => Ok(ChannelType::RotationY),
+            b"Zrotation" => Ok(ChannelType::RotationZ),
+
+            b"Xposition" => Ok(ChannelType::PositionX),
+            b"Yposition" => Ok(ChannelType::PositionY),
+            b"Zposition" => Ok(ChannelType::PositionZ),
+
+            _ => Err(ParseChannelError::from(s)),
+        }
+    }
+
     /// Returns `true` if this channel corresponds to a rotational
     /// transform, otherwise `false`.
     ///
@@ -956,23 +973,6 @@ impl fmt::Display for Axis {
             Axis::Z => "z",
         };
         f.write_str(s)
-    }
-}
-
-impl ChannelType {
-    #[inline]
-    pub fn from_bstr(s: &BStr) -> Result<Self, ParseChannelError> {
-        match s.as_bytes() {
-            b"Xrotation" => Ok(ChannelType::RotationX),
-            b"Yrotation" => Ok(ChannelType::RotationY),
-            b"Zrotation" => Ok(ChannelType::RotationZ),
-
-            b"Xposition" => Ok(ChannelType::PositionX),
-            b"Yposition" => Ok(ChannelType::PositionY),
-            b"Zposition" => Ok(ChannelType::PositionZ),
-
-            _ => Err(ParseChannelError::from(s)),
-        }
     }
 }
 
@@ -1188,7 +1188,7 @@ impl Clips {
     /// This method will panic if `frame` is greater than `self.num_frames()`.
     #[inline]
     pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
-        *self.frames_mut().nth(frame).unwrap().index_mut(channel) = new_motion;
+        self.try_set_motion(frame, channel, new_motion).unwrap();
     }
 
     /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
