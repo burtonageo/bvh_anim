@@ -307,6 +307,14 @@ pub struct ParseChannelError(
     BString,
 );
 
+impl ParseChannelError {
+    /// Get the `BString` which caused the parse error.
+    #[inline]
+    pub fn into_inner(self) -> BString {
+        self.0
+    }
+}
+
 impl<S: Into<BString>> From<S> for ParseChannelError {
     #[inline]
     fn from(s: S) -> Self {
