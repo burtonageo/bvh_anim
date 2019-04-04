@@ -180,6 +180,12 @@ pub enum LoadMotionError {
         /// The parse error, or `None` if there was no number to be parsed.
         parse_error: Option<LexicalError>,
     },
+    MotionCountMismatch {
+        actual_total_motion_values: usize,
+        expected_total_motion_values: usize,
+        expected_num_frames: usize,
+        expected_num_clips: usize,
+    },
 }
 
 impl fmt::Display for LoadMotionError {
@@ -203,6 +209,7 @@ impl StdError for LoadMotionError {
                 "the frame time is missing from the bvh file"
             }
             LoadMotionError::ParseMotionSection { .. } => "could not parse the motion value",
+            LoadMotionError::MotionCountMismatch { .. } => "unexpected number of motion values",
         }
     }
 

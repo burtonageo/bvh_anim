@@ -1103,9 +1103,11 @@ impl Clips {
                 }
             })?;
 
+        let expected_total_motion_values = out_clips.num_channels * out_clips.num_frames;
+
         out_clips
             .data
-            .reserve(out_clips.num_channels * out_clips.num_frames);
+            .reserve(expected_total_motion_values);
 
         for line in lines {
             let line = line?;
@@ -1119,11 +1121,14 @@ impl Clips {
             }
         }
 
-        // @TODO(burtonageo): assert
-        assert_eq!(
-            out_clips.data.len(),
-            out_clips.num_channels * out_clips.num_frames
-        );
+        if out_clips.data.len() != out_clips.num_channels * out_clips.num_frames {
+            return Err(LoadMotionError::MotionCountMismatch {
+                actual_total_motion_values: out_clips.data.len(),
+                expected_total_motion_values,
+                expected_num_frames: out_clips.num_frames,
+                expected_num_clips: out_clips.num_channels,
+            })
+        }
 
         Ok(out_clips)
     }
