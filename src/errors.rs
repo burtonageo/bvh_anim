@@ -133,22 +133,28 @@ impl fmt::Display for LoadJointsError {
             LoadJointsError::MissingJointName { line } => {
                 write!(f, "{}: the name is missing from the joints section", line)
             }
-            LoadJointsError::UnexpectedChannelsSection { line } => {
-                write!(f, "{}: unexpectedly encountered a \"CHANNELS\" section", line)
-            }
+            LoadJointsError::UnexpectedChannelsSection { line } => write!(
+                f,
+                "{}: unexpectedly encountered a \"CHANNELS\" section",
+                line
+            ),
             LoadJointsError::ParseChannelError { ref error, line } => {
                 write!(f, "{}: could not parse channel: {}", line, error)
             }
-            LoadJointsError::UnexpectedOffsetSection { line } => {
-                write!(f, "{}: unexpectedly encountered an \"OFFSET\" section", line)
-            }
+            LoadJointsError::UnexpectedOffsetSection { line } => write!(
+                f,
+                "{}: unexpectedly encountered an \"OFFSET\" section",
+                line
+            ),
             LoadJointsError::ParseOffsetError {
                 ref parse_float_error,
                 axis,
                 line,
-            } => {
-                write!(f, "{}: could not parse the {}-axis offset: {}", line, axis, parse_float_error)
-            }
+            } => write!(
+                f,
+                "{}: could not parse the {}-axis offset: {}",
+                line, axis, parse_float_error
+            ),
             LoadJointsError::MissingOffsetAxis { axis, line } => {
                 write!(f, "{}: the {}-axis offset value is missing", line, axis)
             }
@@ -276,9 +282,7 @@ impl StdError for LoadMotionError {
             LoadMotionError::MissingFrameTime {
                 parse_error: Some(ref e),
             } => Some(e),
-            LoadMotionError::ParseMotionSection {
-                ref parse_error,
-            } => Some(parse_error),
+            LoadMotionError::ParseMotionSection { ref parse_error } => Some(parse_error),
             LoadMotionError::MissingNumFrames {
                 parse_error: Some(ref e),
             } => Some(e),
