@@ -194,10 +194,16 @@ pub enum LoadMotionError {
         /// The parse error, or `None` if there was no number to be parsed.
         parse_error: LexicalError,
     },
+    /// There was a discrepancy between the number of motion values promised
+    /// by the file and the actual amount.
     MotionCountMismatch {
+        /// Actual number of motion values parsed.
         actual_total_motion_values: usize,
+        /// Expected number of motion values.
         expected_total_motion_values: usize,
+        /// Expected number of frames.
         expected_num_frames: usize,
+        /// Expected number of clips.
         expected_num_clips: usize,
     },
 }
