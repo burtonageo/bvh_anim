@@ -1,3 +1,5 @@
+//! Errors which may occur when manipulating `Bvh` files.
+
 use bstr::BString;
 use crate::Axis;
 use lexical::Error as LexicalError;

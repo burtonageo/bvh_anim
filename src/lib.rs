@@ -65,7 +65,7 @@
 //!
 //! [here]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
 
-mod errors;
+pub mod errors;
 pub mod write;
 
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
@@ -84,7 +84,7 @@ use std::{
     time::Duration,
 };
 
-pub use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
+use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
 
 /// Loads the `Bvh` from the `reader`.
 #[inline]
