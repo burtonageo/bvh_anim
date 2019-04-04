@@ -128,16 +128,28 @@ impl fmt::Display for LoadJointsError {
         match *self {
             LoadJointsError::Io(ref e) => fmt::Display::fmt(&e, f),
             LoadJointsError::MissingRoot => f.write_str("The root heirarchy could not be found"),
-            LoadJointsError::MissingJointName { line } => f.write_str("Unknown error"),
-            LoadJointsError::UnexpectedChannelsSection { line } => f.write_str("Unknown error"),
-            LoadJointsError::ParseChannelError { ref error, line } => f.write_str("Unknown error"),
-            LoadJointsError::UnexpectedOffsetSection { line } => f.write_str("Unknown error"),
+            LoadJointsError::MissingJointName { line } => {
+                write!(f, "{}: the name is missing from the joints section", line)
+            }
+            LoadJointsError::UnexpectedChannelsSection { line } => {
+                write!(f, "{}: unexpectedly encountered a \"CHANNELS\" section", line)
+            }
+            LoadJointsError::ParseChannelError { ref error, line } => {
+                write!(f, "{}: could not parse channel: {}", line, error)
+            }
+            LoadJointsError::UnexpectedOffsetSection { line } => {
+                write!(f, "{}: unexpectedly encountered an \"OFFSET\" section", line)
+            }
             LoadJointsError::ParseOffsetError {
                 ref parse_float_error,
                 axis,
                 line,
-            } => f.write_str("Unknown error"),
-            LoadJointsError::MissingOffsetAxis { axis, line } => f.write_str("Unknown error"),
+            } => {
+                write!(f, "{}: could not parse the {}-axis offset: {}", line, axis, parse_float_error)
+            }
+            LoadJointsError::MissingOffsetAxis { axis, line } => {
+                write!(f, "{}: the {}-axis offset value is missing", line, axis)
+            }
         }
     }
 }
@@ -178,7 +190,7 @@ pub enum LoadMotionError {
     /// The motion values section could not be parsed in the bvh.
     ParseMotionSection {
         /// The parse error, or `None` if there was no number to be parsed.
-        parse_error: Option<LexicalError>,
+        parse_error: LexicalError,
     },
     MotionCountMismatch {
         actual_total_motion_values: usize,
@@ -190,7 +202,43 @@ pub enum LoadMotionError {
 
 impl fmt::Display for LoadMotionError {
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unimplemented!()
+        match *self {
+            LoadMotionError::Io(ref e) => {
+                fmt::Display::fmt(e, fmtr)
+            }
+            LoadMotionError::MissingMotionSection => fmtr.write_str(self.description()),
+            LoadMotionError::MissingNumFrames { ref parse_error } => {
+                if let Some(ref e) = parse_error {
+                    write!(fmtr, "could not parse the num frames value: {}", e)
+                } else {
+                    fmtr.write_str(self.description())
+                }
+            }
+            LoadMotionError::MissingFrameTime { ref parse_error } => {
+                if let Some(ref e) = parse_error {
+                    write!(fmtr, "could not parse the frame time: {}", e)
+                } else {
+                    fmtr.write_str(self.description())
+                }
+            }
+            LoadMotionError::ParseMotionSection { ref parse_error } => {
+                write!(fmtr, "{}: {}", self.description(), parse_error)
+            }
+            LoadMotionError::MotionCountMismatch  {
+                actual_total_motion_values,
+                expected_total_motion_values,
+                expected_num_frames,
+                expected_num_clips,
+            } => {
+                write!(
+                    fmtr,
+                    "expected to find {} motion values, found {} values (num frames = {}, num clips = {}",
+                    expected_total_motion_values,
+                    actual_total_motion_values,
+                    expected_num_frames,
+                    expected_num_clips)
+            }
+        }
     }
 }
 
@@ -221,8 +269,8 @@ impl StdError for LoadMotionError {
                 parse_error: Some(ref e),
             } => Some(e),
             LoadMotionError::ParseMotionSection {
-                parse_error: Some(ref e),
-            } => Some(e),
+                ref parse_error,
+            } => Some(parse_error),
             LoadMotionError::MissingNumFrames {
                 parse_error: Some(ref e),
             } => Some(e),

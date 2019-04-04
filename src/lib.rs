@@ -15,7 +15,7 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#![allow(dead_code, unused)]
+#![allow(dead_code)]
 #![warn(unused_imports)]
 
 //! A small library for loading and manipulating BioVision motion files.
@@ -393,6 +393,7 @@ impl Bvh {
         Ok((joints, curr_channel))
     }
 
+    #[allow(unused)]
     fn write_joints(&self, writer: &mut dyn Write) -> Result<(), io::Error> {
         unimplemented!()
     }
@@ -664,6 +665,7 @@ impl<'a> Joints<'a> {
         }
     }
 
+    #[allow(unused)]
     fn iter_children(joint: &Joint<'a>) -> Self {
         unimplemented!()
     }
@@ -945,6 +947,18 @@ impl Axis {
     }
 }
 
+impl fmt::Display for Axis {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match *self {
+            Axis::X => "x",
+            Axis::Y => "y",
+            Axis::Z => "z",
+        };
+        f.write_str(s)
+    }
+}
+
 impl ChannelType {
     #[inline]
     pub fn from_bstr(s: &BStr) -> Result<Self, ParseChannelError> {
@@ -1115,7 +1129,7 @@ impl Clips {
             for token in tokens {
                 let motion: f32 =
                     try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
-                        parse_error: Some(e),
+                        parse_error: e,
                     })?;
                 out_clips.data.push(motion);
             }

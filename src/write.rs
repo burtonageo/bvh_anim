@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! Contains options for `bvh` file formatting.
 
 use crate::Bvh;
