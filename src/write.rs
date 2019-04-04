@@ -158,39 +158,50 @@ pub enum LineTerminator {
     Unix,
     /// Use Windows-style line endings (`'\r\n'`).
     Windows,
-    /// * On Unix, use Unix-style line endings (`'\n'`).
-    /// * On Windows, use Windows-style line endings (`'\r\n'`).
-    Native,
 }
 
-#[cfg(target_os = "windows")]
 impl LineTerminator {
-    /// Return the characters of the `LineTerminator` as a `str`.
+    /// Get the line terminator style native to the current OS:
+    ///
+    /// * On Windows, this returns `LineTerminator::Windows`.
+    /// * Otherwise, this returns `LineTerminator::Unix`.
+    #[cfg(target_os = "windows")]
+    #[inline]
+    pub fn native() -> Self {
+        LineTerminator::Windows
+}
+
+    /// Get the line terminator style native to the current OS:
+    ///
+    /// * On Windows, this returns `LineTerminator::Windows`.
+    /// * Otherwise, this returns `LineTerminator::Unix`.
+#[cfg(not(target_os = "windows"))]
+    #[inline]
+    pub fn native() -> Self {
+        LineTerminator::Unix
+    }
+
+    /// Return the characters of the `LineTerminator` as a `&str`.
     #[inline]
     pub fn as_str(&self) -> &str {
         match *self {
             LineTerminator::Unix => "\n",
-            LineTerminator::Windows | LineTerminator::Native => "\r\n",
-        }
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-impl LineTerminator {
-    /// Return the characters of the `LineTerminator` as a `str`.
-    #[inline]
-    pub fn as_str(&self) -> &str {
-        match *self {
-            LineTerminator::Native | LineTerminator::Unix => "\n",
             LineTerminator::Windows => "\r\n",
         }
     }
+
+    /// Return the characters of the `LineTerminator` as a `&BStr`.
+    #[inline]
+    pub fn as_bstr(&self) -> &BStr {
+        B(self.as_str())
+    }
 }
 
+/// Returns the native line terminator for the current OS.
 impl Default for LineTerminator {
     #[inline]
     fn default() -> Self {
-        LineTerminator::Native
+        LineTerminator::native()
     }
 }
 
