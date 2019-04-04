@@ -403,7 +403,7 @@ impl fmt::Display for Bvh {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = write::WriteOptions::default().write_to_string(self);
-        f.write_str(&s)
+        fmt::Display::fmt(&s, f)
     }
 }
 
@@ -1119,18 +1119,14 @@ impl Clips {
 
         let expected_total_motion_values = out_clips.num_channels * out_clips.num_frames;
 
-        out_clips
-            .data
-            .reserve(expected_total_motion_values);
+        out_clips.data.reserve(expected_total_motion_values);
 
         for line in lines {
             let line = line?;
             let tokens = line.fields();
             for token in tokens {
-                let motion: f32 =
-                    try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
-                        parse_error: e,
-                    })?;
+                let motion: f32 = try_parse(token)
+                    .map_err(|e| LoadMotionError::ParseMotionSection { parse_error: e })?;
                 out_clips.data.push(motion);
             }
         }
@@ -1141,7 +1137,7 @@ impl Clips {
                 expected_total_motion_values,
                 expected_num_frames: out_clips.num_frames,
                 expected_num_clips: out_clips.num_channels,
-            })
+            });
         }
 
         Ok(out_clips)
