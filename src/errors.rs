@@ -246,7 +246,7 @@ impl fmt::Display for LoadMotionError {
             } => {
                 write!(
                     fmtr,
-                    "expected to find {} motion values, found {} values (num frames = {}, num clips = {}",
+                    "expected to find {} motion values, found {} values (num frames = {}, num clips = {})",
                     expected_total_motion_values,
                     actual_total_motion_values,
                     expected_num_frames,
