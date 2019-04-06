@@ -1054,7 +1054,7 @@ impl Clips {
         }
 
         const MOTION_KEYWORD: &[u8] = b"MOTION";
-        const FRAMES_KEYWORD: &[u8] = b"Frames:";
+        const FRAMES_KEYWORD: &[u8] = b"Frames";
         const FRAME_TIME_KEYWORDS: &[&[u8]] = &[b"Frame", b"Time:"];
 
         let mut out_clips = Clips::default();
@@ -1066,6 +1066,7 @@ impl Clips {
             .ok_or(LoadMotionError::MissingMotionSection)
             .and_then(|line| {
                 let line = line?;
+                let line = line.trim();
                 if line == MOTION_KEYWORD {
                     Ok(())
                 } else {
@@ -1078,12 +1079,10 @@ impl Clips {
             .ok_or(LoadMotionError::MissingNumFrames { parse_error: None })
             .and_then(|line| {
                 let line = line?;
-                let mut tokens = line.fields();
+                let line = line.trim();
+                let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
 
-                let frames_kw = tokens.next();
-                if frames_kw.map(BStr::as_bytes) == Some(FRAMES_KEYWORD) {
-                    // do nothing
-                } else {
+                if tokens.next().map(BStr::as_bytes) != Some(FRAMES_KEYWORD) {
                     return Err(LoadMotionError::MissingNumFrames { parse_error: None });
                 }
 
