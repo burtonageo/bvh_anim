@@ -72,6 +72,13 @@ pub enum LoadJointsError {
         /// Line number in the source bvh where the error occurred.
         line: usize,
     },
+    /// The number of channels could not be parsed in a `CHANNELS` section.
+    ParseNumChannelsError {
+        /// The parse error, if there was a malformed string to parse.
+        error: Option<LexicalError>,
+        /// Line number in the source bvh where the error occurred.
+        line: usize,
+    },
     /// A channel type could not be parsed in the `CHANNELS` section.
     ParseChannelError {
         /// The parse error.
@@ -108,6 +115,7 @@ impl LoadJointsError {
         match *self {
             LoadJointsError::MissingJointName { line } => Some(line),
             LoadJointsError::UnexpectedChannelsSection { line } => Some(line),
+            LoadJointsError::ParseNumChannelsError { line, .. } => Some(line),
             LoadJointsError::ParseChannelError { line, .. } => Some(line),
             LoadJointsError::UnexpectedOffsetSection { line } => Some(line),
             LoadJointsError::ParseOffsetError { line, .. } => Some(line),
@@ -138,6 +146,10 @@ impl fmt::Display for LoadJointsError {
                 "{}: unexpectedly encountered a \"CHANNELS\" section",
                 line
             ),
+            LoadJointsError::ParseNumChannelsError { ref error, line } => match error {
+                Some(ref e) => write!(f, "{}: could not parse the number of channels: {}", line, e),
+                None => write!(f, "{}: could not find the number of channels", line),
+            },
             LoadJointsError::ParseChannelError { ref error, line } => {
                 write!(f, "{}: could not parse channel: {}", line, error)
             }
@@ -167,6 +179,9 @@ impl StdError for LoadJointsError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadJointsError::Io(ref e) => Some(e),
+            LoadJointsError::ParseNumChannelsError { ref error, .. } => {
+                error.as_ref().map(|e| e as &(dyn StdError + 'static))
+            }
             LoadJointsError::ParseChannelError { ref error, .. } => Some(error),
             LoadJointsError::ParseOffsetError {
                 ref parse_float_error,

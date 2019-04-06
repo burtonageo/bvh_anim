@@ -357,11 +357,19 @@ impl Bvh {
                     return Err(LoadJointsError::UnexpectedChannelsSection { line: line_num });
                 }
 
-                let num_channels: usize = if let Some(tok) = tokens.next() {
-                    try_parse(tok).unwrap()
-                } else {
-                    panic!("Num channels not found!");
-                };
+                let num_channels: usize = tokens
+                    .next()
+                    .ok_or(LoadJointsError::ParseNumChannelsError {
+                        error: None,
+                        line: line_num,
+                    })
+                    .and_then(|tok| match try_parse(tok) {
+                        Ok(c) => Ok(c),
+                        Err(e) => Err(LoadJointsError::ParseNumChannelsError {
+                            error: Some(e),
+                            line: line_num,
+                        }),
+                    })?;
 
                 let mut channels: SmallVec<[Channel; 6]> = Default::default();
                 channels.reserve(num_channels);
