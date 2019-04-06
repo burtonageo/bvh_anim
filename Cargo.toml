@@ -5,6 +5,7 @@ authors = ["George Burton <burtonageo@gmail.com>"]
 edition = "2018"
 description = "A .bvh file parser"
 keywords = ["bvh", "biovision", "parser", "animation", "skeletal"]
+categories = ["parsing", "rendering::data-formats"]
 license = "MIT"
 
 [dependencies]
