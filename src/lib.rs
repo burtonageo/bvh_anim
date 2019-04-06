@@ -235,7 +235,7 @@ impl Bvh {
             joints
                 .iter()
                 .rev()
-                .find(|jd| jd.depth() == for_depth.checked_sub(2).unwrap_or(0))
+                .find(|jd| jd.depth() == for_depth.saturating_sub(2))
                 .and_then(|jd| jd.private_data().map(|p| p.self_index))
                 .unwrap_or(0)
         }
