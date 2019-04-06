@@ -211,11 +211,12 @@ impl Bvh {
 
         #[derive(Eq, PartialEq)]
         enum NextExpectedLine {
+            Hierarchy,
             Channels,
             Offset,
             OpeningBrace,
             ClosingBrace,
-            JointsName,
+            JointName,
             RootName,
         }
 
@@ -223,10 +224,23 @@ impl Bvh {
         let mut curr_mode = ParseMode::NotStarted;
         let mut curr_channel = 0usize;
         let (mut curr_index, mut curr_depth) = (0usize, 0usize);
+        let mut next_expected_line = NextExpectedLine::Hierarchy;
 
         let mut curr_joint = JointData::empty_root();
         let mut in_end_site = false;
         let mut pushed_end_site_joint = false;
+
+        #[inline]
+        fn get_parent_index(joints: &[JointData], for_depth: usize) -> usize {
+            joints
+                .iter()
+                .rev()
+                .find(|jd: &&JointData| {
+                    jd.depth() == for_depth.checked_sub(2).unwrap_or(0)
+                })
+                .and_then(|jd: &JointData| jd.private_data().map(|p| p.self_index))
+                .unwrap_or(0)
+        }
 
         let lines = reader.byte_lines();
         for (line_num, line) in lines.enumerate() {
@@ -242,11 +256,14 @@ impl Bvh {
 
             if first_token == HEIRARCHY_KEYWORD && curr_mode == ParseMode::NotStarted {
                 curr_mode = ParseMode::InHeirarchy;
+                next_expected_line = NextExpectedLine::RootName;
                 continue;
             }
 
             if first_token == ROOT_KEYWORD {
-                if curr_mode != ParseMode::InHeirarchy {
+                if curr_mode != ParseMode::InHeirarchy
+                    || next_expected_line != NextExpectedLine::RootName
+                {
                     panic!("Unexpected root: {:?}", curr_mode);
                 }
 
@@ -267,14 +284,15 @@ impl Bvh {
                     // We have closed the brace of the root joint.
                     curr_mode = ParseMode::Finished;
                 }
+
                 if in_end_site {
                     if let JointData::Child {
                         ref mut private, ..
                     } = curr_joint
                     {
                         private.self_index = curr_index;
-                        private.parent_index = curr_depth - 1;
-                        private.depth = curr_depth - 2;
+                        private.parent_index = get_parent_index(&joints, curr_depth);
+                        private.depth = curr_depth - 1;
                     }
 
                     let new_joint = mem::replace(&mut curr_joint, JointData::empty_child());
@@ -302,14 +320,13 @@ impl Bvh {
                     } = curr_joint
                     {
                         private.self_index = curr_index;
-                        private.parent_index = curr_depth - 1;
-                        private.depth = curr_depth - 2;
+                        private.parent_index = get_parent_index(&joints, curr_depth);
+                        private.depth = curr_depth - 1;
                     }
 
                     let new_joint = mem::replace(&mut curr_joint, JointData::empty_child());
-                    {
-                        joints.push(new_joint);
-                    }
+                    joints.push(new_joint);
+
                     curr_index += 1;
                 } else {
                     pushed_end_site_joint = false;
@@ -325,7 +342,7 @@ impl Bvh {
                     return Err(LoadJointsError::UnexpectedOffsetSection { line: line_num });
                 }
 
-                let mut offset = Vector3::from_slice(&[0.0, 0.0, 0.0]);
+                let mut offset = Vector3::from([0.0, 0.0, 0.0]);
 
                 macro_rules! parse_axis {
                     ($axis_field:ident, $axis_enum:ident) => {
@@ -556,6 +573,15 @@ impl JointData {
         }
     }
 
+    /// Get the depth of the `JointData` in the heirarchy.
+    #[inline]
+    fn depth(&self) -> usize {
+        match *self {
+            JointData::Child { ref private, .. } => private.depth,
+            _ => 0,
+        }
+    }
+
     fn empty_root() -> Self {
         JointData::Root {
             name: Default::default(),
@@ -618,7 +644,7 @@ pub struct JointPrivateData {
     self_index: usize,
     /// The parent index in the array of `JointPrivateData`s in the `Bvh`.
     parent_index: usize,
-    /// Depth of the `Joint`. A depth of `0` signifies a `Joint` attached to
+    /// Depth of the `Joint`. A depth of `1` signifies a `Joint` attached to
     /// the root.
     depth: usize,
 }
