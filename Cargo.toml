@@ -2,6 +2,9 @@
 name = "bvh_anim"
 version = "0.1.0"
 authors = ["George Burton <burtonageo@gmail.com>"]
+repository = "https://github.com/burtonageo/bvh_anim"
+documentation = "https://docs.rs/bvh_anim/"
+readme = "Readme.md"
 edition = "2018"
 description = "A .bvh file parser"
 keywords = ["bvh", "biovision", "parser", "animation", "skeletal"]
