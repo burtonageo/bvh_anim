@@ -350,3 +350,15 @@ impl StdError for ParseChannelError {
         "The channel could not be parsed from the given string"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bvh_anim::Bvh;
+    use std::mem;
+
+    #[test]
+    fn error_is_smaller_than_bvh() {
+        assert!(mem::size_of::<Bvh> <= mem::size_of::<LoadError>());
+    }
+}
