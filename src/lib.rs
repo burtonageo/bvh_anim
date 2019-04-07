@@ -961,6 +961,31 @@ impl ChannelType {
     }
 }
 
+impl FromStr for ChannelType {
+    type Err = ParseChannelError;
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ChannelType::from_bstr(From::from(s))
+    }
+}
+
+impl fmt::Display for ChannelType {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            ChannelType::RotationX => "Xrotation",
+            ChannelType::RotationY => "Yrotation",
+            ChannelType::RotationZ => "Zrotation",
+
+            ChannelType::PositionX => "Xposition",
+            ChannelType::PositionY => "Yposition",
+            ChannelType::PositionZ => "Zposition",
+        };
+
+        f.write_str(s)
+    }
+}
+
 /// An enum which represents an axis along a direction in 3D space.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Axis {
@@ -1004,31 +1029,6 @@ impl fmt::Display for Axis {
             Axis::Y => "y",
             Axis::Z => "z",
         };
-        f.write_str(s)
-    }
-}
-
-impl FromStr for ChannelType {
-    type Err = ParseChannelError;
-    #[inline]
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ChannelType::from_bstr(From::from(s))
-    }
-}
-
-impl fmt::Display for ChannelType {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match *self {
-            ChannelType::RotationX => "Xrotation",
-            ChannelType::RotationY => "Yrotation",
-            ChannelType::RotationZ => "Zrotation",
-
-            ChannelType::PositionX => "Xposition",
-            ChannelType::PositionY => "Yposition",
-            ChannelType::PositionZ => "Zposition",
-        };
-
         f.write_str(s)
     }
 }
