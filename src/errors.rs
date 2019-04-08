@@ -15,6 +15,18 @@ pub enum LoadError {
     Motion(LoadMotionError),
 }
 
+impl LoadError {
+    /// Get the line where the error occurred, or `None` if there is
+    /// no associated line number.
+    #[inline]
+    pub fn line(&self) -> Option<usize> {
+        match *self {
+            LoadError::Joints(ref e) => e.line(),
+            LoadError::Motion(ref e) => e.line(),
+        }
+    }
+}
+
 impl fmt::Display for LoadError {
     #[inline]
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -110,7 +122,8 @@ pub enum LoadJointsError {
 }
 
 impl LoadJointsError {
-    /// Returns the line of the `Bvh` file where the error occurred.
+    /// Get the line where the error occurred, or `None` if there is
+    /// no associated line number.
     pub fn line(&self) -> Option<usize> {
         match *self {
             LoadJointsError::MissingJointName { line } => Some(line),
@@ -199,21 +212,32 @@ pub enum LoadMotionError {
     /// An I/O error occurred.
     Io(io::Error),
     /// The `MOTION` section is missing in the bvh.
-    MissingMotionSection,
+    MissingMotionSection {
+        /// The line where the error occurred.
+        line: Option<usize>,
+    },
     /// The "Number of Frames" section could not be parsed in the bvh.
     MissingNumFrames {
         /// The parse error, or `None` if there was no number to be parsed.
         parse_error: Option<LexicalError>,
+        /// The line where the error occurred.
+        line: usize,
     },
     /// The "Frame Time" section could not be parsed in the bvh.
     MissingFrameTime {
         /// The parse error, or `None` if there was no number to be parsed.
         parse_error: Option<LexicalError>,
+        /// The line where the error occurred.
+        line: usize,
     },
     /// The motion values section could not be parsed in the bvh.
     ParseMotionSection {
         /// The parse error, or `None` if there was no number to be parsed.
         parse_error: LexicalError,
+        /// The index of the motion value where the error occurred.
+        channel_index: usize,
+        /// The line where the error occurred.
+        line: usize,
     },
     /// There was a discrepancy between the number of motion values promised
     /// by the file and the actual amount.
@@ -229,29 +253,51 @@ pub enum LoadMotionError {
     },
 }
 
+impl LoadMotionError {
+    /// Get the line where the error occurred, or `None` if there is
+    /// no associated line number.
+    pub fn line(&self) -> Option<usize> {
+        match *self {
+            LoadMotionError::MissingMotionSection { line } => line,
+            LoadMotionError::MissingNumFrames { line, .. }
+            | LoadMotionError::MissingFrameTime { line, .. }
+            | LoadMotionError::ParseMotionSection { line, .. } => Some(line),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for LoadMotionError {
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             LoadMotionError::Io(ref e) => {
                 fmt::Display::fmt(e, fmtr)
             }
-            LoadMotionError::MissingMotionSection => fmtr.write_str(self.description()),
-            LoadMotionError::MissingNumFrames { ref parse_error } => {
-                if let Some(ref e) = parse_error {
-                    write!(fmtr, "could not parse the num frames value: {}", e)
+            LoadMotionError::MissingMotionSection {
+                line
+            } => {
+                if let Some(line) = line {
+                    write!(fmtr, "{}: {}", line, self.description())
                 } else {
                     fmtr.write_str(self.description())
                 }
             }
-            LoadMotionError::MissingFrameTime { ref parse_error } => {
+            LoadMotionError::MissingNumFrames { ref parse_error, line } => {
                 if let Some(ref e) = parse_error {
-                    write!(fmtr, "could not parse the frame time: {}", e)
+                    write!(fmtr, "{}: could not parse the num frames value: {}", line, e)
                 } else {
-                    fmtr.write_str(self.description())
+                    write!(fmtr, "{}: {}", line, self.description())
                 }
             }
-            LoadMotionError::ParseMotionSection { ref parse_error } => {
-                write!(fmtr, "{}: {}", self.description(), parse_error)
+            LoadMotionError::MissingFrameTime { ref parse_error, line } => {
+                if let Some(ref e) = parse_error {
+                    write!(fmtr, "{}: could not parse the frame time: {}", line, e)
+                } else {
+                    write!(fmtr, "{}: {}", line, self.description())
+                }
+            }
+            LoadMotionError::ParseMotionSection { ref parse_error, line, .. } => {
+                write!(fmtr, "{}: {} ({})", line, self.description(), parse_error)
             }
             LoadMotionError::MotionCountMismatch  {
                 actual_total_motion_values,
@@ -276,7 +322,7 @@ impl StdError for LoadMotionError {
     fn description(&self) -> &str {
         match *self {
             LoadMotionError::Io(ref e) => e.description(),
-            LoadMotionError::MissingMotionSection => {
+            LoadMotionError::MissingMotionSection { .. } => {
                 "the 'MOTION' section of the bvh file is missing"
             }
             LoadMotionError::MissingNumFrames { .. } => {
@@ -296,10 +342,14 @@ impl StdError for LoadMotionError {
             LoadMotionError::Io(ref e) => Some(e),
             LoadMotionError::MissingFrameTime {
                 parse_error: Some(ref e),
+                ..
             } => Some(e),
-            LoadMotionError::ParseMotionSection { ref parse_error } => Some(parse_error),
+            LoadMotionError::ParseMotionSection {
+                ref parse_error, ..
+            } => Some(parse_error),
             LoadMotionError::MissingNumFrames {
                 parse_error: Some(ref e),
+                ..
             } => Some(e),
             _ => None,
         }
@@ -316,31 +366,33 @@ impl From<io::Error> for LoadMotionError {
 /// Represents an error which may occur when attempting to parse a
 /// `BString` into a `ChannelType`.
 #[derive(Debug)]
-pub struct ParseChannelError(
+pub struct ParseChannelError {
     // @TODO(burtonageo): Borrow the erroneous string when hrts
     // land.
-    BString,
-);
+    bad_string: BString,
+}
 
 impl ParseChannelError {
     /// Get the `BString` which caused the parse error.
     #[inline]
     pub fn into_inner(self) -> BString {
-        self.0
+        self.bad_string
     }
 }
 
 impl<S: Into<BString>> From<S> for ParseChannelError {
     #[inline]
-    fn from(s: S) -> Self {
-        ParseChannelError(s.into())
+    fn from(bad_string: S) -> Self {
+        ParseChannelError {
+            bad_string: bad_string.into(),
+        }
     }
 }
 
 impl fmt::Display for ParseChannelError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {:?}", self.description(), &self.0)
+        write!(f, "{}: {:?}", self.description(), &self.bad_string)
     }
 }
 

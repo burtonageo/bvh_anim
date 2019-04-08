@@ -69,14 +69,17 @@ pub mod errors;
 pub mod write;
 
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
-use bstr::{io::BufReadExt, BStr, B};
+use bstr::{
+    io::{BufReadExt, ByteLines},
+    BStr, B,
+};
 use lexical::try_parse;
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
     fmt,
-    io::{self, BufRead, Cursor, Write},
-    iter::Iterator,
+    io::{self, Cursor, Write},
+    iter::{Enumerate, Iterator},
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut, Index, IndexMut, Range},
@@ -85,6 +88,8 @@ use std::{
 };
 
 use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
+
+type EnumeratedLines<'a> = Enumerate<ByteLines<&'a mut dyn BufReadExt>>;
 
 /// Loads the `Bvh` from the `reader`.
 #[inline]
@@ -186,9 +191,9 @@ impl Bvh {
         self.clips.borrow_mut()
     }
 
-    /// Non-monomorphised logic for parsing the data from a `BufRead`.
+    /// Logic for parsing the data from a `BufRead`.
     fn read_joints(
-        reader: &mut dyn BufReadExt,
+        lines: &mut EnumeratedLines<'_>,
     ) -> Result<(Vec<JointData>, usize), LoadJointsError> {
         const HEIRARCHY_KEYWORD: &[u8] = b"HIERARCHY";
 
@@ -240,8 +245,7 @@ impl Bvh {
                 .unwrap_or(0)
         }
 
-        let lines = reader.byte_lines();
-        for (line_num, line) in lines.enumerate() {
+        for (line_num, line) in lines {
             let line = line?;
             let line = line.trim();
 
@@ -1052,7 +1056,10 @@ pub struct Clips {
 }
 
 impl Clips {
-    fn read_motion(reader: &mut dyn BufRead, num_channels: usize) -> Result<Self, LoadMotionError> {
+    fn read_motion(
+        lines: &mut EnumeratedLines<'_>,
+        num_channels: usize,
+    ) -> Result<Self, LoadMotionError> {
         fn fraction_seconds_to_nanoseconds(x: f64) -> u64 {
             const NSEC_FACTOR: f64 = 1000_000_000.0;
             (x * NSEC_FACTOR) as u64
@@ -1064,31 +1071,41 @@ impl Clips {
 
         let mut out_clips = Clips::default();
         out_clips.num_channels = num_channels;
-        let mut lines = reader.byte_lines();
+        let mut last_line_num = 0usize;
 
         lines
             .next()
-            .ok_or(LoadMotionError::MissingMotionSection)
-            .and_then(|line| {
+            .ok_or(LoadMotionError::MissingMotionSection { line: None })
+            .and_then(|(line_num, line)| {
                 let line = line?;
                 let line = line.trim();
+                last_line_num = line_num;
                 if line == MOTION_KEYWORD {
                     Ok(())
                 } else {
-                    Err(LoadMotionError::MissingMotionSection)
+                    Err(LoadMotionError::MissingMotionSection {
+                        line: Some(line_num),
+                    })
                 }
             })?;
 
         out_clips.num_frames = lines
             .next()
-            .ok_or(LoadMotionError::MissingNumFrames { parse_error: None })
-            .and_then(|line| {
+            .ok_or(LoadMotionError::MissingNumFrames {
+                parse_error: None,
+                line: last_line_num + 1,
+            })
+            .and_then(|(line_num, line)| {
                 let line = line?;
                 let line = line.trim();
+                last_line_num = line_num;
                 let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
 
                 if tokens.next().map(BStr::as_bytes) != Some(FRAMES_KEYWORD) {
-                    return Err(LoadMotionError::MissingNumFrames { parse_error: None });
+                    return Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                        line: line_num,
+                    });
                 }
 
                 let parse_num_frames = |token: Option<&BStr>| {
@@ -1096,24 +1113,34 @@ impl Clips {
                         try_parse::<usize, _>(num_frames)
                             .map_err(|e| LoadMotionError::MissingNumFrames {
                                 parse_error: Some(e),
+                                line: line_num,
                             })
                             .map_err(Into::into)
                     } else {
-                        Err(LoadMotionError::MissingNumFrames { parse_error: None })
+                        Err(LoadMotionError::MissingNumFrames {
+                            parse_error: None,
+                            line: line_num,
+                        })
                     }
                 };
 
                 match tokens.next() {
                     Some(tok) if tok == B(":") => parse_num_frames(tokens.next()),
                     Some(tok) => parse_num_frames(Some(tok)),
-                    None => Err(LoadMotionError::MissingNumFrames { parse_error: None }),
+                    None => Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                        line: line_num,
+                    }),
                 }
             })?;
 
         out_clips.frame_time = lines
             .next()
-            .ok_or(LoadMotionError::MissingFrameTime { parse_error: None })
-            .and_then(|line| {
+            .ok_or(LoadMotionError::MissingFrameTime {
+                parse_error: None,
+                line: last_line_num,
+            })
+            .and_then(|(line_num, line)| {
                 let line = line?;
                 let mut tokens = line.fields();
 
@@ -1121,14 +1148,20 @@ impl Clips {
                 if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(0).map(|b| *b) {
                     // do nothing
                 } else {
-                    return Err(LoadMotionError::MissingFrameTime { parse_error: None });
+                    return Err(LoadMotionError::MissingFrameTime {
+                        parse_error: None,
+                        line: line_num,
+                    });
                 }
 
                 let frame_time_kw = tokens.next();
                 if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(1).map(|b| *b) {
                     // do nothing
                 } else {
-                    return Err(LoadMotionError::MissingFrameTime { parse_error: None });
+                    return Err(LoadMotionError::MissingFrameTime {
+                        parse_error: None,
+                        line: line_num,
+                    });
                 }
 
                 let parse_frame_time = |token: Option<&BStr>| {
@@ -1136,20 +1169,27 @@ impl Clips {
                         let frame_time_secs = try_parse::<f64, _>(frame_time).map_err(|e| {
                             LoadMotionError::MissingFrameTime {
                                 parse_error: Some(e),
+                                line: line_num,
                             }
                         })?;
                         Ok(Duration::from_nanos(fraction_seconds_to_nanoseconds(
                             frame_time_secs,
                         )))
                     } else {
-                        Err(LoadMotionError::MissingFrameTime { parse_error: None })
+                        Err(LoadMotionError::MissingFrameTime {
+                            parse_error: None,
+                            line: line_num,
+                        })
                     }
                 };
 
                 match tokens.next() {
                     Some(tok) if tok == B(":") => parse_frame_time(tokens.next()),
                     Some(tok) => parse_frame_time(Some(tok)),
-                    None => Err(LoadMotionError::MissingNumFrames { parse_error: None }),
+                    None => Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                        line: line_num,
+                    }),
                 }
             })?;
 
@@ -1157,12 +1197,16 @@ impl Clips {
 
         out_clips.data.reserve(expected_total_motion_values);
 
-        for line in lines {
+        for (line_num, line) in lines {
             let line = line?;
             let tokens = line.fields();
-            for token in tokens {
-                let motion: f32 = try_parse(token)
-                    .map_err(|e| LoadMotionError::ParseMotionSection { parse_error: e })?;
+            for (channel_index, token) in tokens.enumerate() {
+                let motion: f32 =
+                    try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
+                        parse_error: e,
+                        channel_index,
+                        line: line_num,
+                    })?;
                 out_clips.data.push(motion);
             }
         }
