@@ -956,8 +956,11 @@ impl ChannelType {
 
     /// Returns the `Vector3` of the channel axis.
     #[inline]
-    pub fn axis_vector(&self) -> Vector3<f32> {
-        self.axis().vector()
+    // @TODO: remove `Clone` bound when
+    // https://github.com/kvark/mint/commit/8c6c501e442152e776a17322dff10e723bf0eeda
+    // is published
+    pub fn axis_vector<T: Clone + One + Zero>(&self) -> Vector3<T> {
+        self.axis().vector::<T>()
     }
 }
 
@@ -999,24 +1002,26 @@ pub enum Axis {
 
 impl Axis {
     /// Returns the `Vector3` which represents the axis.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bvh_anim::Axis;
+    ///
+    /// assert_eq!(Axis::X.vector(), [1.0, 0.0, 0.0].into());
+    /// assert_eq!(Axis::Y.vector(), [0.0, 1.0, 0.0].into());
+    /// assert_eq!(Axis::Z.vector(), [0.0, 0.0, 1.0].into());
+    /// ```
     #[inline]
-    pub fn vector(&self) -> Vector3<f32> {
+    // @TODO: remove `Clone` bound when
+    // https://github.com/kvark/mint/commit/8c6c501e442152e776a17322dff10e723bf0eeda
+    // is published
+    pub fn vector<T: Clone + One + Zero>(&self) -> Vector3<T> {
+        let (_1, _0) = (one, zero);
         match *self {
-            Axis::X => Vector3 {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            Axis::Y => Vector3 {
-                x: 0.0,
-                y: 1.0,
-                z: 0.0,
-            },
-            Axis::Z => Vector3 {
-                x: 0.0,
-                y: 0.0,
-                z: 1.0,
-            },
+            Axis::X => [_1(), _0(), _0()].into(),
+            Axis::Y => [_0(), _1(), _0()].into(),
+            Axis::Z => [_0(), _0(), _1()].into(),
         }
     }
 }

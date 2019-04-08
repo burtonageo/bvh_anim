@@ -16,6 +16,7 @@ atomic_refcell = "0.1"
 bstr = "0.1.0"
 lexical = "2.1"
 mint = "0.5"
+num-traits = "0.2"
 smallvec = "0.6"
 
 [dev-dependencies]
