@@ -152,13 +152,13 @@ impl LoadJointsError {
     /// no associated line number.
     pub fn line(&self) -> Option<usize> {
         match *self {
-            LoadJointsError::MissingJointName { line } => Some(line),
-            LoadJointsError::UnexpectedChannelsSection { line } => Some(line),
-            LoadJointsError::ParseNumChannelsError { line, .. } => Some(line),
-            LoadJointsError::ParseChannelError { line, .. } => Some(line),
-            LoadJointsError::UnexpectedOffsetSection { line } => Some(line),
-            LoadJointsError::ParseOffsetError { line, .. } => Some(line),
-            LoadJointsError::MissingOffsetAxis { line, .. } => Some(line),
+            LoadJointsError::MissingJointName { line }
+            | LoadJointsError::UnexpectedChannelsSection { line }
+            | LoadJointsError::ParseNumChannelsError { line, .. }
+            | LoadJointsError::ParseChannelError { line, .. }
+            | LoadJointsError::UnexpectedOffsetSection { line }
+            | LoadJointsError::ParseOffsetError { line, .. }
+            | LoadJointsError::MissingOffsetAxis { line, .. } => Some(line),
             _ => None,
         }
     }
