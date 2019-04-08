@@ -8,11 +8,9 @@ use std::{error::Error as StdError, fmt, io};
 /// Errors which may arise when loading a `Bvh` file from
 /// a `Reader`.
 #[derive(Debug)]
-pub enum LoadError {
-    /// An error occurred when loading the joints hierarchy.
-    Joints(LoadJointsError),
-    /// An error occurred when loading the motion values.
-    Motion(LoadMotionError),
+pub struct LoadError {
+    /// The error kind.
+    kind: LoadErrorKind,
 }
 
 impl LoadError {
@@ -20,10 +18,29 @@ impl LoadError {
     /// no associated line number.
     #[inline]
     pub fn line(&self) -> Option<usize> {
-        match *self {
-            LoadError::Joints(ref e) => e.line(),
-            LoadError::Motion(ref e) => e.line(),
+        match self.kind {
+            LoadErrorKind::Joints(ref e) => e.line(),
+            LoadErrorKind::Motion(ref e) => e.line(),
         }
+    }
+
+    /// Returns the `LoadError` kind.
+    #[inline]
+    pub fn kind(&self) -> &LoadErrorKind {
+        &self.kind
+    }
+
+    /// Unwraps the `LoadErrorKind` from the `LoadError`.
+    #[inline]
+    pub fn into_kind(self) -> LoadErrorKind {
+        self.kind
+    }
+}
+
+impl<K: Into<LoadErrorKind>> From<K> for LoadError {
+    #[inline]
+    fn from(kind: K) -> Self {
+        LoadError { kind: kind.into() }
     }
 }
 
@@ -37,32 +54,41 @@ impl fmt::Display for LoadError {
 impl StdError for LoadError {
     #[inline]
     fn description(&self) -> &str {
-        match *self {
-            LoadError::Joints(_) => "Could not load hierarchy",
-            LoadError::Motion(_) => "Could not load motion",
+        match self.kind {
+            LoadErrorKind::Joints(_) => "Could not load hierarchy",
+            LoadErrorKind::Motion(_) => "Could not load motion",
         }
     }
 
     #[inline]
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match *self {
-            LoadError::Joints(ref e) => Some(e),
-            LoadError::Motion(ref e) => Some(e),
+        match self.kind {
+            LoadErrorKind::Joints(ref e) => Some(e),
+            LoadErrorKind::Motion(ref e) => Some(e),
         }
     }
 }
 
-impl From<LoadJointsError> for LoadError {
+/// The kind of the `LoadError`.
+#[derive(Debug)]
+pub enum LoadErrorKind {
+    /// An error occurred when loading the joints hierarchy.
+    Joints(LoadJointsError),
+    /// An error occurred when loading the motion values.
+    Motion(LoadMotionError),
+}
+
+impl From<LoadJointsError> for LoadErrorKind {
     #[inline]
     fn from(e: LoadJointsError) -> Self {
-        LoadError::Joints(e)
+        LoadErrorKind::Joints(e)
     }
 }
 
-impl From<LoadMotionError> for LoadError {
+impl From<LoadMotionError> for LoadErrorKind {
     #[inline]
     fn from(e: LoadMotionError) -> Self {
-        LoadError::Motion(e)
+        LoadErrorKind::Motion(e)
     }
 }
 
