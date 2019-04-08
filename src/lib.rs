@@ -75,6 +75,7 @@ use bstr::{
 };
 use lexical::try_parse;
 use mint::Vector3;
+use num_traits::{one, zero, One, Zero};
 use smallvec::SmallVec;
 use std::{
     fmt,
