@@ -130,11 +130,14 @@ impl Bvh {
         Bvh::load(Cursor::new(bytes))
     }
 
-    /// Loads the `Bvh` from the `reader`.
+    /// Loads the `Bvh` from the `reader`.F
     pub fn load<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
-        let (joints, num_channels) = Bvh::read_joints(reader.by_ref())
-            .map(|result| (AtomicRefCell::new(result.0), result.1))?;
-        let clips = Clips::read_motion(reader.by_ref(), num_channels).map(AtomicRefCell::new)?;
+        let reader: &mut dyn BufReadExt = reader.by_ref();
+        let mut lines = reader.byte_lines().enumerate();
+
+        let (joints, num_channels) =
+            Bvh::read_joints(&mut lines).map(|result| (AtomicRefCell::new(result.0), result.1))?;
+        let clips = Clips::read_motion(&mut lines, num_channels).map(AtomicRefCell::new)?;
 
         Ok(Bvh { joints, clips })
     }
