@@ -150,6 +150,7 @@ pub enum LoadJointsError {
 impl LoadJointsError {
     /// Get the line where the error occurred, or `None` if there is
     /// no associated line number.
+    #[inline]
     pub fn line(&self) -> Option<usize> {
         match *self {
             LoadJointsError::MissingJointName { line }
