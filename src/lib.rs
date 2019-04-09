@@ -68,6 +68,8 @@
 pub mod errors;
 pub mod write;
 
+mod joint;
+
 use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use bstr::{
     io::{BufReadExt, ByteLines},
@@ -80,13 +82,15 @@ use smallvec::SmallVec;
 use std::{
     fmt,
     io::{self, Cursor, Write},
-    iter::{Enumerate, Iterator},
+    iter::Enumerate,
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut, Index, IndexMut, Range},
     str::{self, FromStr},
     time::Duration,
 };
+
+pub use joint::{Joint, JointData, JointMut, JointName, Joints, JointsMut};
 
 use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
 
@@ -172,13 +176,13 @@ impl Bvh {
     /// Returns an iterator over all the `Joint`s in the `Bvh`.
     #[inline]
     pub fn joints(&self) -> Joints<'_> {
-        Joints::iter_root(self)
+        Joints::iter_root(&self.joints, &self.clips)
     }
 
     /// Returns a mutable iterator over all the joints in the `Bvh`.
     pub fn joints_mut(&mut self) -> JointsMut<'_> {
         JointsMut {
-            joints: Joints::iter_root(self),
+            joints: Joints::iter_root(&self.joints, &self.clips),
             _boo: PhantomData,
         }
     }
@@ -274,7 +278,7 @@ impl Bvh {
                 }
 
                 if let Some(tok) = tokens.next() {
-                    curr_joint.set_name(tok.bytes().collect());
+                    curr_joint.set_name(JointName(tok.bytes().collect()));
                     continue;
                 }
             }
@@ -339,7 +343,7 @@ impl Bvh {
                 }
 
                 if let Some(name) = tokens.next() {
-                    curr_joint.set_name(name.bytes().collect());
+                    curr_joint.set_name(JointName(name.bytes().collect()));
                 }
             }
 
@@ -435,412 +439,6 @@ impl fmt::Display for Bvh {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = write::WriteOptions::default().write_to_string(self);
         fmt::Display::fmt(&s, f)
-    }
-}
-
-/// A string type for the `Joint` name. A `SmallVec` is used for
-/// better data locality.
-pub type JointName = SmallVec<[u8; 15]>;
-
-/// Internal representation of a joint.
-#[derive(Clone)]
-pub enum JointData {
-    /// Root of the skeletal heirarchy.
-    Root {
-        /// Name of the root `Joint`.
-        name: JointName,
-        /// Positional offset of this `Joint` relative to the parent.
-        offset: Vector3<f32>,
-        /// The channels applicable to this `Joint`.
-        channels: SmallVec<[Channel; 6]>,
-    },
-    /// A child joint in the skeleton.
-    Child {
-        /// Name of the `Joint`.
-        name: JointName,
-        /// Positional offset of this `Joint` relative to the parent.
-        offset: Vector3<f32>,
-        /// The channels applicable to this `Joint`.
-        channels: SmallVec<[Channel; 3]>,
-        /// End site offset.
-        end_site_offset: Option<Vector3<f32>>,
-        /// Private data.
-        #[doc(hidden)]
-        private: JointPrivateData,
-    },
-}
-
-impl fmt::Debug for JointData {
-    #[inline]
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            JointData::Root { .. } => fmtr
-                .debug_struct("Root")
-                .field("name", &self.name())
-                .field("offset", &self.offset())
-                .field("channels", &self.channels())
-                .finish(),
-            JointData::Child { ref private, .. } => fmtr
-                .debug_struct("Child")
-                .field("name", &self.name())
-                .field("offset", &self.offset())
-                .field("channels", &self.channels())
-                .field("end_site_offset", &self.end_site())
-                .field("private", &private)
-                .finish(),
-        }
-    }
-}
-
-impl JointData {
-    /// Returns the name of the `JointData`.
-    #[inline]
-    pub fn name(&self) -> &BStr {
-        match *self {
-            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => B(&name[..]),
-        }
-    }
-
-    /// Returns the offset of the `JointData` if it exists, or `None`.
-    #[inline]
-    pub fn offset(&self) -> &Vector3<f32> {
-        match *self {
-            JointData::Child { ref offset, .. } | JointData::Root { ref offset, .. } => offset,
-        }
-    }
-
-    /// Returns the `end_site_offset` if this `Joint` has an end site, or `None` if
-    /// it doesn't.
-    #[inline]
-    pub fn end_site(&self) -> Option<&Vector3<f32>> {
-        match *self {
-            JointData::Child {
-                ref end_site_offset,
-                ..
-            } => end_site_offset.as_ref(),
-            _ => None,
-        }
-    }
-
-    /// Returns `true` if the `Joint` has an `end_site_offset`, or `false` if it doesn't.
-    #[inline]
-    pub fn has_end_site(&self) -> bool {
-        self.end_site().is_some()
-    }
-
-    /// Returns the ordered array of `Channel`s of this `JointData`.
-    #[inline]
-    pub fn channels(&self) -> &[Channel] {
-        match *self {
-            JointData::Child { ref channels, .. } => &channels[..],
-            JointData::Root { ref channels, .. } => &channels[..],
-        }
-    }
-
-    /// Returns a mutable reference to ordered array of `Channel`s of this `JointData`.
-    #[inline]
-    pub fn channels_mut(&mut self) -> &mut [Channel] {
-        match *self {
-            JointData::Child {
-                ref mut channels, ..
-            } => &mut channels[..],
-            JointData::Root {
-                ref mut channels, ..
-            } => &mut channels[..],
-        }
-    }
-
-    /// Returns the total number of channels applicable to this `JointData`.
-    #[inline]
-    pub fn num_channels(&self) -> usize {
-        self.channels().len()
-    }
-
-    /// Return the index of this `Joint` in the array.
-    #[inline]
-    fn index(&self) -> usize {
-        self.private_data().map(|d| d.self_index).unwrap_or(0)
-    }
-
-    /// Returns the index of the parent `JointData`, or `None` if this `JointData` is the
-    /// root joint.
-    #[inline]
-    fn parent_index(&self) -> Option<usize> {
-        self.private_data().map(|d| d.parent_index)
-    }
-
-    /// Returns a reference to the `JointPrivateData` of the `JointData` if it
-    /// exists, or `None`.
-    #[inline]
-    fn private_data(&self) -> Option<&JointPrivateData> {
-        match *self {
-            JointData::Child { ref private, .. } => Some(private),
-            _ => None,
-        }
-    }
-
-    /// Get the depth of the `JointData` in the heirarchy.
-    #[inline]
-    fn depth(&self) -> usize {
-        match *self {
-            JointData::Child { ref private, .. } => private.depth,
-            _ => 0,
-        }
-    }
-
-    fn empty_root() -> Self {
-        JointData::Root {
-            name: Default::default(),
-            offset: Vector3::from_slice(&[0.0, 0.0, 0.0]),
-            channels: Default::default(),
-        }
-    }
-
-    fn empty_child() -> Self {
-        JointData::Child {
-            name: Default::default(),
-            offset: Vector3::from_slice(&[0.0, 0.0, 0.0]),
-            channels: Default::default(),
-            end_site_offset: Default::default(),
-            private: JointPrivateData::empty(),
-        }
-    }
-
-    fn set_name(&mut self, new_name: JointName) {
-        match *self {
-            JointData::Root { ref mut name, .. } => *name = new_name,
-            JointData::Child { ref mut name, .. } => *name = new_name,
-        }
-    }
-
-    fn set_offset(&mut self, new_offset: Vector3<f32>, is_site: bool) {
-        match *self {
-            JointData::Root { ref mut offset, .. } => *offset = new_offset,
-            JointData::Child {
-                ref mut offset,
-                ref mut end_site_offset,
-                ..
-            } => {
-                if is_site {
-                    *end_site_offset = Some(new_offset);
-                } else {
-                    *offset = new_offset;
-                }
-            }
-        }
-    }
-
-    fn set_channels(&mut self, new_channels: SmallVec<[Channel; 6]>) {
-        match *self {
-            JointData::Root {
-                ref mut channels, ..
-            } => *channels = new_channels,
-            JointData::Child {
-                ref mut channels, ..
-            } => *channels = new_channels.iter().map(|c| *c).collect(),
-        }
-    }
-}
-
-/// Data private to joints.
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct JointPrivateData {
-    /// Index of this `Joint` in the array.
-    self_index: usize,
-    /// The parent index in the array of `JointPrivateData`s in the `Bvh`.
-    parent_index: usize,
-    /// Depth of the `Joint`. A depth of `1` signifies a `Joint` attached to
-    /// the root.
-    depth: usize,
-}
-
-impl JointPrivateData {
-    #[inline]
-    fn new(self_index: usize, parent_index: usize, depth: usize) -> Self {
-        JointPrivateData {
-            self_index,
-            parent_index,
-            depth,
-        }
-    }
-
-    #[inline]
-    fn empty() -> Self {
-        JointPrivateData::new(0, 0, 0)
-    }
-
-    #[inline]
-    fn new_default() -> Self {
-        Self::new(0, 0, 0)
-    }
-}
-
-impl fmt::Debug for JointPrivateData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("JointPrivateData { .. }")
-    }
-}
-
-/// An iterator over the `Joint`s of a `Bvh` skeleton.
-pub struct Joints<'a> {
-    bvh: &'a Bvh,
-    current_joint: usize,
-    joint_depth: Option<usize>,
-}
-
-impl fmt::Debug for Joints<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Joints { .. }")
-    }
-}
-
-impl<'a> Joints<'a> {
-    fn iter_root(bvh: &'a Bvh) -> Self {
-        Joints {
-            bvh,
-            current_joint: 0,
-            joint_depth: None,
-        }
-    }
-
-    #[allow(unused)]
-    fn iter_children(joint: &Joint<'a>) -> Self {
-        unimplemented!()
-    }
-
-    /// Finds the `Joint` named `joint_name`, or `None` if it doesn't exist.
-    #[inline]
-    pub fn find_by_name(&mut self, joint_name: &str) -> Option<Joint<'a>> {
-        self.find(|b| b.data().name() == joint_name)
-    }
-}
-
-impl<'a> Iterator for Joints<'a> {
-    type Item = Joint<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_joint >= self.bvh.joints.borrow().len() {
-            return None;
-        }
-
-        let joint = Some(Joint {
-            self_index: self.current_joint,
-            skeleton: &self.bvh.joints,
-            clips: &self.bvh.clips,
-        });
-
-        self.current_joint += 1;
-
-        joint
-    }
-}
-
-/// A mutable iterator over the `Joint`s of a `Bvh` skeleton.
-pub struct JointsMut<'a> {
-    joints: Joints<'a>,
-    _boo: PhantomData<&'a mut Bvh>,
-}
-
-impl<'a> Iterator for JointsMut<'a> {
-    type Item = JointMut<'a>;
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.joints.next().map(JointMut::from_joint)
-    }
-}
-
-impl fmt::Debug for JointsMut<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("JointsMut { .. }")
-    }
-}
-
-/// A view of a joint which provides access to various relevant data.
-pub struct Joint<'a> {
-    /// Index of the `Joint` in the skeleton.
-    self_index: usize,
-    /// Skeleton which the joint is part of.
-    skeleton: &'a AtomicRefCell<Vec<JointData>>,
-    /// Motion clip data relevant to the skeleton.
-    clips: &'a AtomicRefCell<Clips>,
-}
-
-impl Joint<'_> {
-    /// Return the parent `Joint` if it exists, or `None` if it doesn't.
-    #[inline]
-    pub fn parent(&self) -> Option<Joint<'_>> {
-        self.data().parent_index().map(|idx| Joint {
-            self_index: idx,
-            skeleton: self.skeleton,
-            clips: self.clips,
-        })
-    }
-
-    /// Returns an iterator over the children of `self`.
-    #[inline]
-    pub fn children(&self) -> Joints<'_> {
-        Joints::iter_children(self.clone())
-    }
-
-    /// Access a read-only view of the internal data of the `Joint`.
-    #[inline]
-    pub fn data(&self) -> AtomicRef<JointData> {
-        AtomicRef::map(self.skeleton.borrow(), |skel| &skel[self.self_index])
-    }
-}
-
-impl fmt::Debug for Joint<'_> {
-    #[inline]
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmtr.debug_struct("Joint")
-            .field("index", &self.self_index)
-            .field("data", &self.data())
-            .finish()
-    }
-}
-
-/// A view of a joint which provides mutable access.
-pub struct JointMut<'a> {
-    joint: Joint<'a>,
-    _boo: PhantomData<&'a mut ()>,
-}
-
-impl<'a> JointMut<'a> {
-    /// Mutable access to the internal data of the `JointMut`.
-    #[inline]
-    pub fn data_mut(&mut self) -> AtomicRefMut<JointData> {
-        AtomicRefMut::map(self.skeleton.borrow_mut(), |skel| {
-            &mut skel[self.self_index]
-        })
-    }
-
-    /// Construct a `JointMut` from a `Joint`.
-    #[inline]
-    fn from_joint(joint: Joint<'a>) -> Self {
-        JointMut {
-            joint,
-            _boo: PhantomData,
-        }
-    }
-}
-
-impl<'a> Deref for JointMut<'a> {
-    type Target = Joint<'a>;
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.joint
-    }
-}
-
-impl fmt::Debug for JointMut<'_> {
-    #[inline]
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmtr.debug_struct("JointMut")
-            .field("index", &self.self_index)
-            .field("data", &self.data())
-            .finish()
     }
 }
 
