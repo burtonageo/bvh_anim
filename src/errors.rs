@@ -241,7 +241,7 @@ pub enum LoadMotionError {
     /// The `MOTION` section is missing in the bvh.
     MissingMotionSection {
         /// The line where the error occurred.
-        line: Option<usize>,
+        line: usize,
     },
     /// The "Number of Frames" section could not be parsed in the bvh.
     MissingNumFrames {
@@ -285,8 +285,8 @@ impl LoadMotionError {
     /// no associated line number.
     pub fn line(&self) -> Option<usize> {
         match *self {
-            LoadMotionError::MissingMotionSection { line } => line,
-            LoadMotionError::MissingNumFrames { line, .. }
+            LoadMotionError::MissingMotionSection { line }
+            | LoadMotionError::MissingNumFrames { line, .. }
             | LoadMotionError::MissingFrameTime { line, .. }
             | LoadMotionError::ParseMotionSection { line, .. } => Some(line),
             _ => None,
@@ -303,11 +303,7 @@ impl fmt::Display for LoadMotionError {
             LoadMotionError::MissingMotionSection {
                 line
             } => {
-                if let Some(line) = line {
-                    write!(fmtr, "{}: {}", line, self.description())
-                } else {
-                    fmtr.write_str(self.description())
-                }
+                write!(fmtr, "{}: {}", line, self.description())
             }
             LoadMotionError::MissingNumFrames { ref parse_error, line } => {
                 if let Some(ref e) = parse_error {

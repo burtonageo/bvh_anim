@@ -94,7 +94,42 @@ pub use joint::{Joint, JointData, JointMut, JointName, Joints, JointsMut};
 
 use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
 
-type EnumeratedLines<'a> = Enumerate<ByteLines<&'a mut dyn BufReadExt>>;
+struct CachedEnumerate<I> {
+    iter: Enumerate<I>,
+    last_enumerator: Option<usize>,
+}
+
+impl<I> CachedEnumerate<I> {
+    #[inline]
+    fn new(iter: Enumerate<I>) -> Self {
+        CachedEnumerate {
+            iter,
+            last_enumerator: None,
+        }
+    }
+
+    #[inline]
+    fn last_enumerator(&self) -> Option<usize> {
+        self.last_enumerator
+    }
+}
+
+impl<I: Iterator> Iterator for CachedEnumerate<I> {
+    type Item = <Enumerate<I> as Iterator>::Item;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let (curr, item) = self.iter.next()?;
+        self.last_enumerator = Some(curr);
+        Some((curr, item))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+type EnumeratedLines<'a> = CachedEnumerate<ByteLines<&'a mut dyn BufReadExt>>;
 
 /// Loads the `Bvh` from the `reader`.
 #[inline]
@@ -137,7 +172,7 @@ impl Bvh {
     /// Loads the `Bvh` from the `reader`.F
     pub fn load<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
         let reader: &mut dyn BufReadExt = reader.by_ref();
-        let mut lines = reader.byte_lines().enumerate();
+        let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
         let (joints, num_channels) =
             Bvh::read_joints(&mut lines).map(|result| (AtomicRefCell::new(result.0), result.1))?;
@@ -673,21 +708,25 @@ impl Clips {
 
         let mut out_clips = Clips::default();
         out_clips.num_channels = num_channels;
-        let mut last_line_num = 0usize;
+
+        macro_rules! last_line_num {
+            () => {
+                lines.last_enumerator().unwrap_or(0)
+            };
+        }
 
         lines
             .next()
-            .ok_or(LoadMotionError::MissingMotionSection { line: None })
+            .ok_or(LoadMotionError::MissingMotionSection {
+                line: last_line_num!(),
+            })
             .and_then(|(line_num, line)| {
                 let line = line?;
                 let line = line.trim();
-                last_line_num = line_num;
                 if line == MOTION_KEYWORD {
                     Ok(())
                 } else {
-                    Err(LoadMotionError::MissingMotionSection {
-                        line: Some(line_num),
-                    })
+                    Err(LoadMotionError::MissingMotionSection { line: line_num })
                 }
             })?;
 
@@ -695,12 +734,11 @@ impl Clips {
             .next()
             .ok_or(LoadMotionError::MissingNumFrames {
                 parse_error: None,
-                line: last_line_num + 1,
+                line: last_line_num!(),
             })
             .and_then(|(line_num, line)| {
                 let line = line?;
                 let line = line.trim();
-                last_line_num = line_num;
                 let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
 
                 if tokens.next().map(BStr::as_bytes) != Some(FRAMES_KEYWORD) {
@@ -740,7 +778,7 @@ impl Clips {
             .next()
             .ok_or(LoadMotionError::MissingFrameTime {
                 parse_error: None,
-                line: last_line_num,
+                line: last_line_num!(),
             })
             .and_then(|(line_num, line)| {
                 let line = line?;
