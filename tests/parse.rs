@@ -17,3 +17,11 @@ fn test_load_success() {
         println!("{:?}", frame);
     }
 }
+
+#[test]
+fn test_string_parse() {
+    const BVH_BYTES: &[u8] = include_bytes!("../data/test_mocapbank.bvh");
+    let bvh = bvh_anim::parse(BVH_BYTES);
+    assert!(bvh.is_ok());
+}
+
