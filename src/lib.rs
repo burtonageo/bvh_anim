@@ -65,6 +65,9 @@
 //!
 //! [here]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
 
+#[macro_use]
+mod macros;
+
 pub mod errors;
 pub mod write;
 
@@ -91,6 +94,8 @@ use std::{
 };
 
 pub use joint::{Joint, JointData, JointMut, JointName, Joints, JointsMut};
+#[doc(hidden)]
+pub use macros::BvhLiteralBuilder;
 
 use errors::{LoadError, LoadJointsError, LoadMotionError, ParseChannelError};
 
@@ -144,6 +149,10 @@ pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
 }
 
 /// A complete `bvh` file.
+///
+/// You can also create a `Bvh` using the [`bvh!` macro][`bvh!`].
+///
+/// [`bvh!`]: macro.bvh.html
 #[derive(Clone, Default, Debug)]
 pub struct Bvh {
     /// The list of joints. If the root joint exists, it is always at
@@ -697,11 +706,6 @@ impl Clips {
         lines: &mut EnumeratedLines<'_>,
         num_channels: usize,
     ) -> Result<Self, LoadMotionError> {
-        fn fraction_seconds_to_nanoseconds(x: f64) -> u64 {
-            const NSEC_FACTOR: f64 = 1000_000_000.0;
-            (x * NSEC_FACTOR) as u64
-        }
-
         const MOTION_KEYWORD: &[u8] = b"MOTION";
         const FRAMES_KEYWORD: &[u8] = b"Frames";
         const FRAME_TIME_KEYWORDS: &[&[u8]] = &[b"Frame", b"Time:"];
@@ -812,9 +816,7 @@ impl Clips {
                                 line: line_num,
                             }
                         })?;
-                        Ok(Duration::from_nanos(fraction_seconds_to_nanoseconds(
-                            frame_time_secs,
-                        )))
+                        Ok(fraction_seconds_to_duration(frame_time_secs))
                     } else {
                         Err(LoadMotionError::MissingFrameTime {
                             parse_error: None,
@@ -1092,6 +1094,11 @@ impl DerefMut for Frame {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
+}
+
+fn fraction_seconds_to_duration(x: f64) -> Duration {
+    const NSEC_FACTOR: f64 = 1000_000_000.0;
+    Duration::from_nanos((x * NSEC_FACTOR) as u64)
 }
 
 #[cfg(test)]
