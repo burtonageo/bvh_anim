@@ -127,6 +127,18 @@ impl JointData {
         }
     }
 
+    /// Returns a mutable reference to the `JointPrivateData` of the `JointData` if it
+    /// exists, or `None`.
+    #[inline]
+    pub(crate) fn private_data_mut(&mut self) -> Option<&mut JointPrivateData> {
+        match *self {
+            JointData::Child {
+                ref mut private, ..
+            } => Some(private),
+            _ => None,
+        }
+    }
+
     /// Get the depth of the `JointData` in the heirarchy.
     #[inline]
     pub(crate) fn depth(&self) -> usize {
