@@ -252,11 +252,14 @@ impl WriteOptions {
                                 chunk.push(self.line_terminator.as_str());
 
                                 chunk.push(self.indent.prefix_chars(depth + 1).collect::<Vec<_>>());
-                                chunk.push(
-                                    format!("OFFSET {:.*} {:.*} {:.*}",
-                                    self.offset_significant_figures, x,
-                                    self.offset_significant_figures, y,
-                                    self.offset_significant_figures, z,
+                                chunk.push(format!(
+                                    "OFFSET {:.*} {:.*} {:.*}",
+                                    self.offset_significant_figures,
+                                    x,
+                                    self.offset_significant_figures,
+                                    y,
+                                    self.offset_significant_figures,
+                                    z,
                                 ));
                                 chunk.push(self.line_terminator.as_str());
 
