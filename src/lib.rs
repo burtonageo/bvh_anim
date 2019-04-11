@@ -587,6 +587,20 @@ pub struct Frames<'a> {
     curr_frame: usize,
 }
 
+impl Frames<'_> {
+    /// Returns the number of `Frame`s left to iterate over.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.num_frames - self.curr_frame
+    }
+
+    /// Returns `true` if the number of `Frame`s left to iterate over is `0`.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 impl<'a> Iterator for Frames<'a> {
     type Item = &'a Frame;
 
@@ -603,6 +617,20 @@ pub struct FramesMut<'a> {
     num_channels: usize,
     num_frames: usize,
     curr_frame: usize,
+}
+
+impl FramesMut<'_> {
+    /// Returns the number of `Frame`s left to iterate over.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.num_frames - self.curr_frame
+    }
+
+    /// Returns `true` if the number of `Frame`s left to iterate over is `0`.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<'a> Iterator for FramesMut<'a> {
