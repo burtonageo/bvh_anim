@@ -89,7 +89,7 @@ impl Bvh {
                 }
 
                 if let Some(tok) = tokens.next() {
-                    curr_joint.set_name(JointName(tok.bytes().collect()));
+                    curr_joint.set_name(JointName::from(tok));
                     continue;
                 }
             }
@@ -154,7 +154,7 @@ impl Bvh {
                 }
 
                 if let Some(name) = tokens.next() {
-                    curr_joint.set_name(JointName(name.bytes().collect()));
+                    curr_joint.set_name(JointName::from(name));
                 }
             }
 

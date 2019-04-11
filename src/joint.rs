@@ -1,4 +1,4 @@
-use bstr::BStr;
+use bstr::{BStr, BString};
 use crate::Channel;
 use mint::Vector3;
 use smallvec::SmallVec;
@@ -235,6 +235,22 @@ impl<B: AsRef<[u8]>> PartialOrd<B> for JointName {
         AsRef::<BStr>::as_ref(self).partial_cmp(rhs.as_ref())
     }
 }
+
+macro_rules! impl_from {
+    ($t:ty) => {
+        impl From<$t> for JointName {
+            #[inline]
+            fn from(b: $t) -> Self {
+                JointName(b.bytes().collect())
+            }
+        }
+    };
+}
+
+impl_from!{String}
+impl_from!{&'_ str}
+impl_from!{BString}
+impl_from!{&'_ BStr}
 
 macro_rules! impl_as_ref {
     ($t:ty { ref => $method:path, mut => $mut_method:path }) => {
