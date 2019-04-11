@@ -248,7 +248,9 @@ macro_rules! parse_bvh_internal {
             $builder.push_root();
             $builder.push_joint_name(stringify!($root_name));
 
+            $builder.current_depth += 1;
             parse_joints_internal!($builder ($($joints)*));
+            $builder.current_depth -= 1;
 
             $builder.set_num_frames(0);
             $builder.set_frame_time(f64::from($frame_time));
@@ -274,7 +276,9 @@ macro_rules! parse_bvh_internal {
             $builder.push_root();
             $builder.push_joint_name(stringify!($root_name));
 
+            $builder.current_depth += 1;
             parse_joints_internal!($builder ($($joints)*));
+            $builder.current_depth -= 1;
 
             $builder.set_num_frames($num_frames as usize);
             $builder.set_frame_time(f64::from($frame_time));
@@ -396,9 +400,22 @@ impl BvhLiteralBuilder {
     }
 
     pub fn push_joint(&mut self) {
-        self.bvh.joints.push(JointData::empty_child());
+        // @TODO: make this shared
+        #[inline]
+        fn get_parent_index(joints: &[JointData], for_depth: usize) -> usize {
+            joints
+                .iter()
+                .rev()
+                .find(|jd| jd.depth() == for_depth.saturating_sub(1))
+                .and_then(|jd| jd.private_data().map(|p| p.self_index))
+                .unwrap_or(0)
+        }
+
         let idx = self.current_index;
         let dpth = self.current_depth;
+        let parent = get_parent_index(&self.bvh.joints[..], dpth);
+
+        self.bvh.joints.push(JointData::empty_child());
         {
             let mut private = self
                 .last_joint()
@@ -407,8 +424,7 @@ impl BvhLiteralBuilder {
 
             private.self_index = idx;
             private.depth = dpth;
-            // @TODO: Fix this.
-            private.parent_index = 0;
+            private.parent_index = parent;
         }
 
         self.current_index += 1;
@@ -483,7 +499,7 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test_macro() {
+    fn macro_create() {
         let bvh = bvh! {
             HIERARCHY
             ROOT Base
