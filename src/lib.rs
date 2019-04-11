@@ -681,11 +681,3 @@ fn fraction_seconds_to_duration(x: f64) -> Duration {
     const NSEC_FACTOR: f64 = 1000_000_000.0;
     Duration::from_nanos((x * NSEC_FACTOR) as u64)
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
