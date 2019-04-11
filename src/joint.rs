@@ -439,6 +439,14 @@ impl<'a> JointsMut<'a> {
     }
 }
 
+impl<'a> Iterator for JointsMut<'a> {
+    type Item = JointMut<'a>;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+}
+
 /*
 
 impl<'a> Iterator for JointsMut<'a> {
