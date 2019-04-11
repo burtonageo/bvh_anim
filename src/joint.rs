@@ -49,7 +49,7 @@ impl JointData {
 
     /// Returns `true` if the `Joint` is a child `Joint`, or `false` if it isn't.
     #[inline]
-    pub const fn is_child(&self) -> bool {
+    pub fn is_child(&self) -> bool {
         !self.is_root()
     }
 
