@@ -1,4 +1,7 @@
-use bvh_anim::bvh;
+use bvh_anim::{
+    bvh,
+    write::{IndentStyle, WriteOptions},
+};
 
 const BVH_STRING: &str = r#"""
 HIERARCHY
@@ -18,9 +21,10 @@ ROOT Base
 }
 
 MOTION
-Frames: 1
+Frames: 2
 Frame Time: 0.033333333333
 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
+1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
 """#;
 
 #[ignore] // failing at the moment
@@ -44,11 +48,27 @@ fn test_write() {
         }
 
         MOTION
-        Frames: 1
+        Frames: 2
         Frame Time: 0.033333333333
         0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
+        1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
     };
 
-    let bvh_string = bvh.to_string();
+    let bvh_string = WriteOptions::new()
+        .with_indent(IndentStyle::with_spaces(4))
+        .write_to_string(&bvh);
+
+    assert_eq!(bvh_string, BVH_STRING);
+}
+
+#[ignore]
+#[test]
+fn test_load_write_is_identical() {
+    const BVH_BYTES: &[u8] = include_bytes!("../data/test_mocapbank.bvh");
+    let bvh = bvh_anim::parse(BVH_BYTES).unwrap();
+    let bvh_string = WriteOptions::new()
+        .with_indent(IndentStyle::with_spaces(2))
+        .write_to_string(&bvh);
+
     assert_eq!(bvh_string, BVH_STRING);
 }
