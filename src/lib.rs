@@ -76,7 +76,7 @@ mod parse;
 
 use bstr::{
     io::{BufReadExt, ByteLines},
-    BStr,
+    BStr, BString,
 };
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
@@ -133,6 +133,28 @@ impl<I: Iterator> Iterator for CachedEnumerate<I> {
 
 type EnumeratedLines<'a> = CachedEnumerate<ByteLines<&'a mut dyn BufReadExt>>;
 
+impl<'a> EnumeratedLines<'a> {
+    pub fn next_non_empty_line(&mut self) -> Option<(usize, io::Result<BString>)> {
+        let mut next = self.next();
+        loop {
+            match next {
+                None => return None,
+                Some((idx, result)) => {
+                    let string = match result {
+                        Ok(s) => s,
+                        Err(e) => return Some((idx, Err(e))),
+                    };
+                    if string.trim().is_empty() {
+                        next = self.next()
+                    } else {
+                        return Some((idx, Ok(string)));
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Loads the `Bvh` from the `reader`.
 #[inline]
 pub fn load<R: BufReadExt>(data: R) -> Result<Bvh, LoadError> {
@@ -182,14 +204,11 @@ impl Bvh {
         let reader: &mut dyn BufReadExt = reader.by_ref();
         let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
-        let (joints, num_channels) = Bvh::read_joints(&mut lines)?;
-        let mut bvh = Bvh {
-            joints,
-            num_channels,
-            ..Default::default()
-        };
+        let mut bvh = Bvh::default();
 
+        bvh.read_joints(&mut lines)?;
         bvh.read_motion(&mut lines)?;
+
         Ok(bvh)
     }
 

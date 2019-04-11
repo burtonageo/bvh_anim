@@ -12,8 +12,9 @@ use std::mem;
 impl Bvh {
     /// Logic for parsing the data from a `BufRead`.
     pub(crate) fn read_joints(
+        &mut self,
         lines: &mut EnumeratedLines<'_>,
-    ) -> Result<(Vec<JointData>, usize), LoadJointsError> {
+    ) -> Result<(), LoadJointsError> {
         const HEIRARCHY_KEYWORD: &[u8] = b"HIERARCHY";
 
         const ROOT_KEYWORD: &[u8] = b"ROOT";
@@ -236,7 +237,10 @@ impl Bvh {
             return Err(LoadJointsError::MissingRoot);
         }
 
-        Ok((joints, curr_channel))
+        self.joints = joints;
+        self.num_channels = curr_channel;
+
+        Ok(())
     }
 
     pub(crate) fn read_motion(
@@ -254,7 +258,7 @@ impl Bvh {
         }
 
         lines
-            .next()
+            .next_non_empty_line()
             .ok_or(LoadMotionError::MissingMotionSection {
                 line: last_line_num!(),
             })
@@ -269,7 +273,7 @@ impl Bvh {
             })?;
 
         self.num_frames = lines
-            .next()
+            .next_non_empty_line()
             .ok_or(LoadMotionError::MissingNumFrames {
                 parse_error: None,
                 line: last_line_num!(),
@@ -313,7 +317,7 @@ impl Bvh {
             })?;
 
         self.frame_time = lines
-            .next()
+            .next_non_empty_line()
             .ok_or(LoadMotionError::MissingFrameTime {
                 parse_error: None,
                 line: last_line_num!(),
