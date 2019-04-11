@@ -95,7 +95,7 @@ pub use joint::{Joint, JointData, JointMut, JointName, Joints, JointsMut};
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
 
-use errors::{LoadError, ParseChannelError};
+use errors::{LoadError, ParseChannelError, SetMotionError};
 
 struct CachedEnumerate<I> {
     iter: Enumerate<I>,
