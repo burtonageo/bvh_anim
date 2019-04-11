@@ -213,83 +213,6 @@ macro_rules! parse_joints_internal {
     };
 }
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! parse_bvh_internal {
-    ($builder:ident (
-        HIERARCHY
-        MOTION
-    )) => {
-        $builder.suppress_unused_mut_warning();
-    };
-
-    ($builder:ident (
-        HIERARCHY
-        MOTION
-        Frames: 0
-        Frame Time: $frame_time:literal
-    )) => {
-        $builder.set_frame_time(f64::from($frame_time));
-    };
-
-    ($builder:ident (
-        HIERARCHY
-        ROOT $root_name:ident
-        {
-            $( $joints:tt )*
-        }
-        MOTION
-        Frames: 0
-        Frame Time: $frame_time:literal
-    )) => {
-        {
-            use bvh_anim::parse_joints_internal;
-
-            $builder.push_root();
-            $builder.push_joint_name(stringify!($root_name));
-
-            $builder.current_depth += 1;
-            parse_joints_internal!($builder ($($joints)*));
-            $builder.current_depth -= 1;
-
-            $builder.set_num_frames(0);
-            $builder.set_frame_time(f64::from($frame_time));
-        }
-    };
-
-    ($builder:ident (
-        HIERARCHY
-        ROOT $root_name:ident
-        {
-            $( $joints:tt )*
-        }
-        MOTION
-        Frames: $num_frames:literal
-        Frame Time: $frame_time:literal
-        $(
-            $motion:literal
-        )*
-    )) => {
-        {
-            use bvh_anim::parse_joints_internal;
-
-            $builder.push_root();
-            $builder.push_joint_name(stringify!($root_name));
-
-            $builder.current_depth += 1;
-            parse_joints_internal!($builder ($($joints)*));
-            $builder.current_depth -= 1;
-
-            $builder.set_num_frames($num_frames as usize);
-            $builder.set_frame_time(f64::from($frame_time));
-
-            $builder.set_motion_values(vec![ $( f32::from($motion) ),* ]);
-
-            assert!($builder.check_valid_motion());
-        }
-    };
-}
-
 /// Create a new [`Bvh`][`Bvh`] object using a macro literal. Useful for
 /// testing.
 ///
@@ -362,11 +285,94 @@ macro_rules! bvh {
         bvh_anim::Bvh::default()
     };
 
-    ($($toks:tt)*) => {
+    (
+        HIERARCHY
+        MOTION
+    ) => {
+        bvh_anim::Bvh::default()
+    };
+
+    (
+        HIERARCHY
+        MOTION
+        Frames: 0
+    ) => {
+        bvh_anim::Bvh::default()
+    };
+
+    (
+        HIERARCHY
+        MOTION
+        Frames: 0
+        Frame Time: $frame_time:literal
+    ) => {
         {
-            use bvh_anim::parse_bvh_internal;
+            let mut bvh = bvh_anim::Bvh::default();
+            bvh.set_frame_time(f64::from($frame_time));
+            bvh
+        }
+    };
+
+    (
+        HIERARCHY
+        ROOT $root_name:ident
+        {
+            $( $joints:tt )*
+        }
+        MOTION
+        Frames: 0
+        Frame Time: $frame_time:literal
+    ) => {
+        {
+            use bvh_anim::parse_joints_internal;
+
             let mut builder = bvh_anim::BvhLiteralBuilder::default();
-            parse_bvh_internal!(builder ($($toks)*));
+            builder.push_root();
+            builder.push_joint_name(stringify!($root_name));
+
+            builder.current_depth += 1;
+            parse_joints_internal!(builder ($($joints)*));
+            builder.current_depth -= 1;
+
+            builder.set_num_frames(0);
+            builder.set_frame_time(f64::from($frame_time));
+
+            builder.bvh
+        }
+    };
+
+    (
+        HIERARCHY
+        ROOT $root_name:ident
+        {
+            $( $joints:tt )*
+        }
+        MOTION
+        Frames: $num_frames:literal
+        Frame Time: $frame_time:literal
+        $(
+            $motion:literal
+        )*
+    ) => {
+        {
+            use bvh_anim::parse_joints_internal;
+
+            let mut builder = bvh_anim::BvhLiteralBuilder::default();
+
+            builder.push_root();
+            builder.push_joint_name(stringify!($root_name));
+
+            builder.current_depth += 1;
+            parse_joints_internal!(builder ($($joints)*));
+            builder.current_depth -= 1;
+
+            builder.set_num_frames($num_frames as usize);
+            builder.set_frame_time(f64::from($frame_time));
+
+            builder.set_motion_values(vec![ $( f32::from($motion) ),* ]);
+
+            assert!(builder.check_valid_motion());
+
             builder.bvh
         }
     };
