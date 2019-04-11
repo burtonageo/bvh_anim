@@ -137,11 +137,11 @@ impl IndentStyle {
     /// Return an `Iterator` which yields bytes corresponding to the ascii
     /// chars which form the `String` this indentation style would take.
     #[inline]
-    fn prefix_chars(&self) -> impl Iterator<Item = u8> {
+    fn prefix_chars(&self, depth: usize) -> impl Iterator<Item = u8> {
         match *self {
             IndentStyle::NoIndentation => iter::repeat(b'\0').take(0),
-            IndentStyle::Tabs => iter::repeat(b'\t').take(1),
-            IndentStyle::Spaces(n) => iter::repeat(b' ').take(n.get()),
+            IndentStyle::Tabs => iter::repeat(b'\t').take(depth),
+            IndentStyle::Spaces(n) => iter::repeat(b' ').take(n.get() * depth),
         }
     }
 }
