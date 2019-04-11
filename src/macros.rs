@@ -65,7 +65,12 @@ macro_rules! parse_joints_internal {
         OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         $($rest:tt)*
     )) => {
-        $builder.push_joint_offset([$ofst_x, $ofst_y, $ofst_z].into(), false);
+        let offset = [
+            f32::from($ofst_x),
+            f32::from($ofst_y),
+            f32::from($ofst_z),
+        ];
+        $builder.push_joint_offset(offset.into(), false);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
@@ -199,7 +204,13 @@ macro_rules! parse_joints_internal {
             OFFSET $end_x:literal $end_y:literal $end_z:literal
         }
     )) => {
-        $builder.push_joint_offset([$end_x, $end_y, $end_z].into(), true);
+        let offset = [
+            f32::from($end_x),
+            f32::from($end_y),
+            f32::from($end_z),
+        ];
+
+        $builder.push_joint_offset(offset.into() , true);
     };
 }
 
@@ -211,6 +222,15 @@ macro_rules! parse_bvh_internal {
         MOTION
     )) => {
         $builder.suppress_unused_mut_warning();
+    };
+
+    ($builder:ident (
+        HIERARCHY
+        MOTION
+        Frames: 0
+        Frame Time: $frame_time:literal
+    )) => {
+        $builder.set_frame_time(f64::from($frame_time));
     };
 
     ($builder:ident (
@@ -297,21 +317,12 @@ macro_rules! parse_bvh_internal {
 /// };
 /// ```
 /// 
-/// You can combine the `bvh` macro with the `include` macro to include a `bvh` file
-/// at compile time:
-///
-/// ```no_run
-/// # use bvh_anim::bvh;
-/// let included = bvh! {
-///     include!("./path/to/anim.bvh")
-/// };
-/// ```
-/// 
-/// You can also use the `bvh` macro to create empty `Bvh` instances:
+/// You can use the `bvh` macro to create empty `Bvh` instances:
 ///
 /// ```
 /// # use bvh_anim::bvh;
 /// let empty = bvh! {};
+///
 /// let another_empty = bvh! {
 ///     HIERARCHY
 ///     MOTION
@@ -321,17 +332,6 @@ macro_rules! parse_bvh_internal {
 /// [`bvh`]: struct.Bvh.html
 #[macro_export]
 macro_rules! bvh {
-    ( include!( $file:expr )) => {
-        {
-            macro_rules! local_include {
-                ($file:expr) => {
-                    std::include($file)
-                }
-            }
-            bvh! { local_include!($file) }
-        }
-    };
-
     () => {
         bvh_anim::Bvh::default()
     };
@@ -346,6 +346,9 @@ macro_rules! bvh {
     };
 }
 
+// @TODO: refactor this into a general `Builder` so that we have an
+// easy interface to get other animation/skeleton data into a `bvh`
+// file.
 /// Helper struct to build a `Bvh` from the macro without exposing
 /// too many internals.
 #[doc(hidden)]
