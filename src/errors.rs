@@ -53,7 +53,7 @@ impl fmt::Display for LoadError {
 
 impl StdError for LoadError {
     #[inline]
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         match self.kind {
             LoadErrorKind::Joints(_) => "Could not load hierarchy",
             LoadErrorKind::Motion(_) => "Could not load motion",
@@ -412,7 +412,7 @@ impl fmt::Display for SetMotionError<'_> {
 
 impl StdError for SetMotionError<'_> {
     #[inline]
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         match *self {
             SetMotionError::BadFrame(_) => "The frame was out of bounds",
             SetMotionError::BadChannel(_) => "The channel was out of bounds",
@@ -455,7 +455,7 @@ impl fmt::Display for ParseChannelError {
 
 impl StdError for ParseChannelError {
     #[inline]
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "The channel could not be parsed from the given string"
     }
 }
