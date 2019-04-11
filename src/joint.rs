@@ -252,23 +252,27 @@ impl<B: AsRef<[u8]>> PartialOrd<B> for JointName {
 }
 
 macro_rules! impl_from {
-    ($t:ty) => {
+    () => {};
+    (;) => {};
+    ($t:ty; $($rest:tt)*) => {
         impl From<$t> for JointName {
             #[inline]
             fn from(b: $t) -> Self {
                 JointName(b.bytes().collect())
             }
         }
-    };
+        impl_from!($($rest)*);
+}
 }
 
-impl_from!{String}
-impl_from!{&'_ str}
-impl_from!{BString}
-impl_from!{&'_ BStr}
+impl_from! {
+    String; &'_ str;
+    BString; &'_ BStr;
+}
 
 macro_rules! impl_as_ref {
-    ($t:ty { ref => $method:path, mut => $mut_method:path }) => {
+    ($( $t:ty { ref => $method:path, mut => $mut_method:path } )*) => {
+        $(
         impl AsRef<$t> for JointName {
             #[inline]
             fn as_ref(&self) -> &$t {
@@ -281,14 +285,12 @@ macro_rules! impl_as_ref {
                 $mut_method(&mut self.0[..])
             }
         }
-    };
+        )*
+    }
 }
 
 impl_as_ref! {
     BStr { ref => BStr::new, mut => BStr::new_mut }
-}
-
-impl_as_ref! {
     [u8] { ref => AsRef::<[u8]>::as_ref, mut => AsMut::<[u8]>::as_mut }
 }
 
