@@ -561,10 +561,14 @@ mod tests {
                 "Base",
                 [0.0, 0.0, 0.0],
                 &[
-                    ChannelType::PositionX, ChannelType::PositionY, ChannelType::PositionZ,
-                    ChannelType::RotationZ, ChannelType::RotationX, ChannelType::RotationY,
+                    ChannelType::PositionX,
+                    ChannelType::PositionY,
+                    ChannelType::PositionZ,
+                    ChannelType::RotationZ,
+                    ChannelType::RotationX,
+                    ChannelType::RotationY,
                 ],
-                None
+                None,
             );
 
             check_joint(
@@ -572,7 +576,9 @@ mod tests {
                 "End",
                 [0.0, 0.0, 15.0],
                 &[
-                    ChannelType::RotationZ, ChannelType::RotationX, ChannelType::RotationY,
+                    ChannelType::RotationZ,
+                    ChannelType::RotationX,
+                    ChannelType::RotationY,
                 ],
                 [0.0, 0.0, 30.0],
             );
