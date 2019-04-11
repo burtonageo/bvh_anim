@@ -492,6 +492,26 @@ impl ChannelType {
     pub fn axis_vector<T: Clone + One + Zero>(&self) -> Vector3<T> {
         self.axis().vector::<T>()
     }
+
+    /// Returns the string representation of the `ChannelType`.
+    #[inline]
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            ChannelType::RotationX => "Xrotation",
+            ChannelType::RotationY => "Yrotation",
+            ChannelType::RotationZ => "Zrotation",
+
+            ChannelType::PositionX => "Xposition",
+            ChannelType::PositionY => "Yposition",
+            ChannelType::PositionZ => "Zposition",
+}
+    }
+
+    /// Returns the string representation of the `ChannelType`.
+    #[inline]
+    pub fn as_bstr(&self) -> &'static BStr {
+        B(self.as_str())
+    }
 }
 
 impl FromStr for ChannelType {
@@ -505,17 +525,7 @@ impl FromStr for ChannelType {
 impl fmt::Display for ChannelType {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match *self {
-            ChannelType::RotationX => "Xrotation",
-            ChannelType::RotationY => "Yrotation",
-            ChannelType::RotationZ => "Zrotation",
-
-            ChannelType::PositionX => "Xposition",
-            ChannelType::PositionY => "Yposition",
-            ChannelType::PositionZ => "Zposition",
-        };
-
-        f.write_str(s)
+        f.write_str(self.as_str())
     }
 }
 
