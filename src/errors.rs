@@ -412,7 +412,7 @@ impl fmt::Display for SetMotionError<'_> {
 
 impl StdError for SetMotionError<'_> {
     #[inline]
-    fn description(&self) -> &'static str {
+    fn description(&self) -> &str {
         match *self {
             SetMotionError::BadFrame(_) => "The frame was out of bounds",
             SetMotionError::BadChannel(_) => "The channel was out of bounds",
