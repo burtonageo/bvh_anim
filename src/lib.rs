@@ -351,11 +351,6 @@ impl Bvh {
     pub fn set_frame_time(&mut self, new_frame_time: Duration) {
         self.frame_time = new_frame_time;
     }
-
-    #[allow(unused)]
-    fn write_joints(&self, writer: &mut dyn Write) -> Result<(), io::Error> {
-        unimplemented!()
-    }
 }
 
 impl fmt::Display for Bvh {
