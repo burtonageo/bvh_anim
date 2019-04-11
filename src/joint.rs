@@ -103,14 +103,14 @@ impl JointData {
 
     /// Return the index of this `Joint` in the array.
     #[inline]
-    pub(crate) fn index(&self) -> usize {
+    pub fn index(&self) -> usize {
         self.private_data().map(|d| d.self_index).unwrap_or(0)
     }
 
     /// Returns the index of the parent `JointData`, or `None` if this `JointData` is the
     /// root joint.
     #[inline]
-    pub(crate) fn parent_index(&self) -> Option<usize> {
+    pub fn parent_index(&self) -> Option<usize> {
         self.private_data().map(|d| d.parent_index)
     }
 
@@ -346,9 +346,7 @@ impl fmt::Debug for Joints<'_> {
 
 impl<'a> Joints<'a> {
     /// Create a `Joints` iterator over all the `joints` in a `Bvh` file.
-    pub(crate) fn iter_root(
-        joints: &'a [JointData]
-        //clips: &'a AtomicRefCell<Clips>,
+    pub(crate) fn iter_root(joints: &'a [JointData] //clips: &'a AtomicRefCell<Clips>
     ) -> Self {
         Joints {
             joints,
@@ -393,11 +391,10 @@ impl<'a> Joints<'a> {
         self.find(|b| b.data().name() == joint_name)
     }
 
-    pub(crate) fn nth_child(
-        joint: &Joint<'a>,
-        child: usize,
-    ) -> Option<usize> {
-        Joints::iter_children(joint).nth(child).map(|joint| joint.index)
+    pub(crate) fn nth_child(joint: &Joint<'a>, child: usize) -> Option<usize> {
+        Joints::iter_children(joint)
+            .nth(child)
+            .map(|joint| joint.index)
     }
 }
 
@@ -431,9 +428,7 @@ pub struct JointsMut<'a> {
 }
 
 impl<'a> JointsMut<'a> {
-    pub(crate) fn iter_root(
-        joints: &'a mut [JointData]
-        //clips: &'a AtomicRefCell<Clips>,
+    pub(crate) fn iter_root(joints: &'a mut [JointData] //clips: &'a AtomicRefCell<Clips>
     ) -> Self {
         JointsMut {
             joints,
