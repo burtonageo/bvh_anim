@@ -1,13 +1,10 @@
-use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use bstr::BStr;
-use crate::{Bvh, Channel, Clips};
+use crate::Channel;
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
-    fmt,
-    marker::PhantomData,
-    mem,
+    fmt, mem,
     ops::{Deref, DerefMut},
     str,
 };
@@ -334,8 +331,8 @@ impl fmt::Debug for JointPrivateData {
 
 /// An iterator over the `Joint`s of a `Bvh` skeleton.
 pub struct Joints<'a> {
-    pub(crate) joints: &'a AtomicRefCell<Vec<JointData>>,
-    pub(crate) clips: &'a AtomicRefCell<Clips>,
+    pub(crate) joints: &'a [JointData],
+    // pub(crate) motion_values: &'a [f32],
     pub(crate) current_joint: usize,
     pub(crate) from_child: Option<usize>,
 }
@@ -349,12 +346,12 @@ impl fmt::Debug for Joints<'_> {
 
 impl<'a> Joints<'a> {
     pub(crate) fn iter_root(
-        joints: &'a AtomicRefCell<Vec<JointData>>,
-        clips: &'a AtomicRefCell<Clips>,
+        joints: &'a [JointData]
+        //clips: &'a AtomicRefCell<Clips>,
     ) -> Self {
         Joints {
             joints,
-            clips,
+            // clips,
             current_joint: 0,
             from_child: None,
         }
@@ -362,12 +359,11 @@ impl<'a> Joints<'a> {
 
     pub(crate) fn iter_children(joint: &Joint<'a>) -> Self {
         let first_child = joint
-            .skeleton
-            .borrow()
+            .joints
             .iter()
             .find(|jd| {
                 if let Some(p) = jd.private_data() {
-                    p.parent_index == joint.self_index
+                    p.parent_index == joint.index
                 } else {
                     false
                 }
@@ -376,8 +372,8 @@ impl<'a> Joints<'a> {
             .unwrap();
 
         Joints {
-            joints: joint.skeleton,
-            clips: joint.clips,
+            joints: joint.joints,
+            // clips: joint.clips,
             current_joint: joint.data().index(),
             from_child: Some(first_child),
         }
@@ -406,14 +402,13 @@ impl<'a> Joints<'a> {
 impl<'a> Iterator for Joints<'a> {
     type Item = Joint<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_joint >= self.joints.borrow().len() {
+        if self.current_joint >= self.joints.len() {
             return None;
         }
 
         let joint = Some(Joint {
-            self_index: self.current_joint,
-            skeleton: self.joints,
-            clips: self.clips,
+            index: self.current_joint,
+            joints: self.joints,
         });
 
         if self.from_child.is_none() {
@@ -428,9 +423,26 @@ impl<'a> Iterator for Joints<'a> {
 
 /// A mutable iterator over the `Joint`s of a `Bvh` skeleton.
 pub struct JointsMut<'a> {
-    pub(crate) joints: Joints<'a>,
-    pub(crate) _boo: PhantomData<&'a mut Bvh>,
+    pub(crate) joints: &'a mut [JointData],
+    pub(crate) current_joint: usize,
+    pub(crate) from_child: Option<usize>,
 }
+
+impl<'a> JointsMut<'a> {
+    pub(crate) fn iter_root(
+        joints: &'a mut [JointData]
+        //clips: &'a AtomicRefCell<Clips>,
+    ) -> Self {
+        JointsMut {
+            joints,
+            // clips,
+            current_joint: 0,
+            from_child: None,
+        }
+    }
+}
+
+/*
 
 impl<'a> Iterator for JointsMut<'a> {
     type Item = JointMut<'a>;
@@ -447,14 +459,14 @@ impl fmt::Debug for JointsMut<'_> {
     }
 }
 
+*/
+
 /// A view of a joint which provides access to various relevant data.
 pub struct Joint<'a> {
     /// Index of the `Joint` in the skeleton.
-    pub(crate) self_index: usize,
-    /// Skeleton which the joint is part of.
-    pub(crate) skeleton: &'a AtomicRefCell<Vec<JointData>>,
-    /// Motion clip data relevant to the skeleton.
-    pub(crate) clips: &'a AtomicRefCell<Clips>,
+    pub(crate) index: usize,
+    /// `Joints` array which the joint is part of.
+    pub(crate) joints: &'a [JointData],
 }
 
 impl Joint<'_> {
@@ -462,9 +474,8 @@ impl Joint<'_> {
     #[inline]
     pub fn parent(&self) -> Option<Joint<'_>> {
         self.data().parent_index().map(|idx| Joint {
-            self_index: idx,
-            skeleton: self.skeleton,
-            clips: self.clips,
+            index: idx,
+            joints: self.joints,
         })
     }
 
@@ -476,8 +487,8 @@ impl Joint<'_> {
 
     /// Access a read-only view of the internal data of the `Joint`.
     #[inline]
-    pub fn data(&self) -> AtomicRef<JointData> {
-        AtomicRef::map(self.skeleton.borrow(), |skel| &skel[self.self_index])
+    pub fn data(&self) -> &JointData {
+        &self.joints[self.index]
     }
 }
 
@@ -485,7 +496,7 @@ impl fmt::Debug for Joint<'_> {
     #[inline]
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmtr.debug_struct("Joint")
-            .field("index", &self.self_index)
+            .field("index", &self.index)
             .field("data", &self.data())
             .finish()
     }
@@ -493,43 +504,41 @@ impl fmt::Debug for Joint<'_> {
 
 /// A view of a joint which provides mutable access.
 pub struct JointMut<'a> {
-    joint: Joint<'a>,
-    _boo: PhantomData<&'a mut ()>,
+    /// Index of the `Joint` in the skeleton.
+    pub(crate) index: usize,
+    /// `Joints` array which the joint is part of.
+    pub(crate) joints: &'a mut [JointData],
 }
 
 impl<'a> JointMut<'a> {
-    /// Mutable access to the internal data of the `JointMut`.
+    /*
+    /// Return the parent `Joint` if it exists, or `None` if it doesn't.
     #[inline]
-    pub fn data_mut(&mut self) -> AtomicRefMut<JointData> {
-        AtomicRefMut::map(self.skeleton.borrow_mut(), |skel| {
-            &mut skel[self.self_index]
+    pub fn parent(&self) -> Option<Joint<'_>> {
+        self.data().parent_index().map(|idx| Joint {
+            self_index: idx,
+            skeleton: self.skeleton,
+            clips: self.clips,
         })
     }
-
-    /// Construct a `JointMut` from a `Joint`.
+    
+    pub fn 
+    
+    /// Returns an iterator over the children of `self`.
     #[inline]
-    pub(crate) fn from_joint(joint: Joint<'a>) -> Self {
-        JointMut {
-            joint,
-            _boo: PhantomData,
-        }
+    pub fn children(&self) -> Joints<'_> {
+        Joints::iter_children(&self)
     }
-}
-
-impl<'a> Deref for JointMut<'a> {
-    type Target = Joint<'a>;
+    
+    /// Access a read-only view of the internal data of the `Joint`.
     #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.joint
+    pub fn data(&self) -> &JointData {
+        &self.joints[self_index]
     }
-}
-
-impl fmt::Debug for JointMut<'_> {
+    */
+    /// Mutable access to the internal data of the `JointMut`.
     #[inline]
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmtr.debug_struct("JointMut")
-            .field("index", &self.self_index)
-            .field("data", &self.data())
-            .finish()
+    pub fn data_mut(&mut self) -> &mut JointData {
+        &mut self.joints[self.index]
     }
 }

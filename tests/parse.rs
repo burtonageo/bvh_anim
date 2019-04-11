@@ -1,4 +1,5 @@
-use bvh_anim::Bvh;
+#[macro_use]
+use bvh_anim;
 use std::{fs::File, io::BufReader};
 
 #[test]
@@ -7,13 +8,13 @@ fn test_load_success() {
         .map(BufReader::new)
         .unwrap();
 
-    let bvh = Bvh::load(reader).unwrap();
+    let bvh = bvh_anim::load(reader).unwrap();
     for joint in bvh.joints() {
         println!("{:#?}", joint);
     }
-    println!("Frame time: {:?}", bvh.clips().frame_time());
+    println!("Frame time: {:?}", bvh.frame_time());
 
-    for frame in bvh.clips().frames() {
+    for frame in bvh.frames() {
         println!("{:?}", frame);
     }
 }
@@ -24,4 +25,3 @@ fn test_string_parse() {
     let bvh = bvh_anim::parse(BVH_BYTES);
     assert!(bvh.is_ok());
 }
-

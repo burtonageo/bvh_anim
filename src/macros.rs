@@ -1,4 +1,3 @@
-use atomic_refcell::AtomicRefMut;
 use crate::{
     fraction_seconds_to_duration,
     joint::{JointData, JointName},
@@ -9,7 +8,7 @@ use crate::{
 #[macro_export]
 macro_rules! match_channels {
     ($builder:ident; ) => {
-        
+
     };
     ($builder:ident;Xposition $($rest:ident)*) => {
         $builder.push_channel(bvh_anim::ChannelType::PositionX);
@@ -316,7 +315,7 @@ macro_rules! parse_bvh_internal {
 ///     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
 /// };
 /// ```
-/// 
+///
 /// You can use the `bvh` macro to create empty `Bvh` instances:
 ///
 /// ```
@@ -369,18 +368,19 @@ pub struct BvhLiteralBuilder {
 #[doc(hidden)]
 impl BvhLiteralBuilder {
     pub fn push_root(&mut self) {
-        self.bvh.joints.borrow_mut().push(JointData::empty_root());
+        self.bvh.joints.push(JointData::empty_root());
         self.current_index += 1;
     }
 
     pub fn push_joint(&mut self) {
-        self.bvh.joints.borrow_mut().push(JointData::empty_child());
+        self.bvh.joints.push(JointData::empty_child());
         let idx = self.current_index;
         let dpth = self.current_depth;
         {
-            let mut private = AtomicRefMut::map(self.last_joint().unwrap(), |j| {
-                j.private_data_mut().unwrap()
-            });
+            let mut private = self
+                .last_joint()
+                .and_then(|j| j.private_data_mut())
+                .unwrap();
 
             private.self_index = idx;
             private.depth = dpth;
@@ -424,41 +424,32 @@ impl BvhLiteralBuilder {
     #[inline]
     pub fn set_frame_time(&mut self, frame_time_secs: f64) {
         self.bvh
-            .clips_mut()
             .set_frame_time(fraction_seconds_to_duration(frame_time_secs));
     }
 
     #[inline]
     pub fn set_num_frames(&mut self, num_frames: usize) {
         self.num_frames = num_frames;
-        let mut clips = self.bvh.clips.borrow_mut();
-        clips.num_channels = self.current_channel_index;
-        clips.num_frames = self.num_frames;
-        clips
-            .data
+        self.bvh.num_channels = self.current_channel_index;
+        self.bvh.num_frames = self.num_frames;
+        self.bvh
+            .motion_values
             .reserve(self.current_channel_index * self.num_frames);
     }
 
     #[inline]
     pub fn push_motion(&mut self, motion: f32) {
-        let mut clips = self.bvh.clips.borrow_mut();
-        clips.data.push(motion);
+        self.bvh.motion_values.push(motion);
     }
 
     pub fn check_valid_motion(&self) -> bool {
-        let clips = self.bvh.clips.borrow();
-        clips.data.len() == clips.num_channels * clips.num_frames
+        self.bvh.motion_values.len() == self.bvh.num_channels * self.bvh.num_frames
     }
 
     pub fn suppress_unused_mut_warning(&mut self) {}
 
-    fn last_joint(&mut self) -> Option<AtomicRefMut<'_, JointData>> {
-        let joints = self.bvh.joints.borrow_mut();
-        if joints.is_empty() {
-            None
-        } else {
-            Some(AtomicRefMut::map(joints, |j| j.last_mut().unwrap()))
-        }
+    fn last_joint(&mut self) -> Option<&mut JointData> {
+        self.bvh.joints.last_mut()
     }
 }
 
@@ -495,10 +486,10 @@ mod tests {
 
         // @TODO: test joints
 
-        assert_eq!(*bvh.clips().frame_time(), Duration::from_nanos(33333333));
+        assert_eq!(*bvh.frame_time(), Duration::from_nanos(33333333));
 
         let mut num_frames = 0;
-        for frame in bvh.clips().frames() {
+        for frame in bvh.frames() {
             let mut num_channels = 0;
             for channel in frame.iter() {
                 assert_eq!(*channel, 0.0);
@@ -516,8 +507,8 @@ mod tests {
         macro_rules! assert_empty {
             ($bvh:expr) => {
                 assert!($bvh.joints().next().is_none());
-                assert_eq!(*$bvh.clips().frame_time(), Duration::default());
-                assert!($bvh.clips().frames().next().is_none());
+                assert_eq!(*$bvh.frame_time(), Duration::default());
+                assert!($bvh.frames().next().is_none());
             };
         }
 

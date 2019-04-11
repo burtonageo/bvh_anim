@@ -73,7 +73,6 @@ pub mod write;
 
 mod joint;
 
-use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use bstr::{
     io::{BufReadExt, ByteLines},
     BStr, B,
@@ -86,7 +85,6 @@ use std::{
     fmt,
     io::{self, Cursor, Write},
     iter::Enumerate,
-    marker::PhantomData,
     mem,
     ops::{Deref, DerefMut, Index, IndexMut, Range},
     str::{self, FromStr},
@@ -157,13 +155,15 @@ pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
 pub struct Bvh {
     /// The list of joints. If the root joint exists, it is always at
     /// index `0`.
-    ///
-    /// The internal data is wrapped in an `AtomicRefCell` to avoid having to duplicate
-    /// large parts of the library to handle the difference between mutable/immutable
-    /// parts.
-    joints: AtomicRefCell<Vec<JointData>>,
-    /// Matrix of animation data.
-    clips: AtomicRefCell<Clips>,
+    joints: Vec<JointData>,
+    /// The motion values of the `Frame`.
+    motion_values: Vec<f32>,
+    /// The number of frames in the bvh.
+    num_frames: usize,
+    /// The number of `Channel`s in the bvh.
+    num_channels: usize,
+    /// The total time it takes to play one frame.
+    frame_time: Duration,
 }
 
 impl Bvh {
@@ -183,11 +183,15 @@ impl Bvh {
         let reader: &mut dyn BufReadExt = reader.by_ref();
         let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
-        let (joints, num_channels) =
-            Bvh::read_joints(&mut lines).map(|result| (AtomicRefCell::new(result.0), result.1))?;
-        let clips = Clips::read_motion(&mut lines, num_channels).map(AtomicRefCell::new)?;
+        let (joints, num_channels) = Bvh::read_joints(&mut lines)?;
+        let mut bvh = Bvh {
+            joints,
+            num_channels,
+            ..Default::default()
+        };
 
-        Ok(Bvh { joints, clips })
+        bvh.read_motion(&mut lines)?;
+        Ok(bvh)
     }
 
     /// Writes the `Bvh` using the `bvh` file format to the `writer`, with
@@ -206,13 +210,12 @@ impl Bvh {
     /// Returns the root joint if it exists, or `None` if the skeleton is empty.
     #[inline]
     pub fn root_joint(&self) -> Option<Joint<'_>> {
-        if self.joints.borrow().is_empty() {
+        if self.joints.is_empty() {
             None
         } else {
             Some(Joint {
-                self_index: 0,
-                skeleton: &self.joints,
-                clips: &self.clips,
+                index: 0,
+                joints: &self.joints[..],
             })
         }
     }
@@ -220,27 +223,12 @@ impl Bvh {
     /// Returns an iterator over all the `Joint`s in the `Bvh`.
     #[inline]
     pub fn joints(&self) -> Joints<'_> {
-        Joints::iter_root(&self.joints, &self.clips)
+        Joints::iter_root(&self.joints[..])
     }
 
     /// Returns a mutable iterator over all the joints in the `Bvh`.
     pub fn joints_mut(&mut self) -> JointsMut<'_> {
-        JointsMut {
-            joints: Joints::iter_root(&self.joints, &self.clips),
-            _boo: PhantomData,
-        }
-    }
-
-    /// Returns an immutable reference to the `Clips` data of the `Bvh`.
-    #[inline]
-    pub fn clips(&self) -> AtomicRef<'_, Clips> {
-        self.clips.borrow()
-    }
-
-    /// Returns a mutable reference to the `Clips` data of the `Bvh`.
-    #[inline]
-    pub fn clips_mut(&mut self) -> AtomicRefMut<'_, Clips> {
-        self.clips.borrow_mut()
+        JointsMut::iter_root(&mut self.joints[..])
     }
 
     /// Logic for parsing the data from a `BufRead`.
@@ -472,6 +460,264 @@ impl Bvh {
         Ok((joints, curr_channel))
     }
 
+    fn read_motion(&mut self, lines: &mut EnumeratedLines<'_>) -> Result<(), LoadMotionError> {
+        const MOTION_KEYWORD: &[u8] = b"MOTION";
+        const FRAMES_KEYWORD: &[u8] = b"Frames";
+        const FRAME_TIME_KEYWORDS: &[&[u8]] = &[b"Frame", b"Time:"];
+
+        macro_rules! last_line_num {
+            () => {
+                lines.last_enumerator().unwrap_or(0)
+            };
+        }
+
+        lines
+            .next()
+            .ok_or(LoadMotionError::MissingMotionSection {
+                line: last_line_num!(),
+            })
+            .and_then(|(line_num, line)| {
+                let line = line?;
+                let line = line.trim();
+                if line == MOTION_KEYWORD {
+                    Ok(())
+                } else {
+                    Err(LoadMotionError::MissingMotionSection { line: line_num })
+                }
+            })?;
+
+        self.num_frames = lines
+            .next()
+            .ok_or(LoadMotionError::MissingNumFrames {
+                parse_error: None,
+                line: last_line_num!(),
+            })
+            .and_then(|(line_num, line)| {
+                let line = line?;
+                let line = line.trim();
+                let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
+
+                if tokens.next().map(BStr::as_bytes) != Some(FRAMES_KEYWORD) {
+                    return Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                        line: line_num,
+                    });
+                }
+
+                let parse_num_frames = |token: Option<&BStr>| {
+                    if let Some(num_frames) = token {
+                        try_parse::<usize, _>(num_frames)
+                            .map_err(|e| LoadMotionError::MissingNumFrames {
+                                parse_error: Some(e),
+                                line: line_num,
+                            })
+                            .map_err(Into::into)
+                    } else {
+                        Err(LoadMotionError::MissingNumFrames {
+                            parse_error: None,
+                            line: line_num,
+                        })
+                    }
+                };
+
+                match tokens.next() {
+                    Some(tok) if tok == B(":") => parse_num_frames(tokens.next()),
+                    Some(tok) => parse_num_frames(Some(tok)),
+                    None => Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                        line: line_num,
+                    }),
+                }
+            })?;
+
+        self.frame_time = lines
+            .next()
+            .ok_or(LoadMotionError::MissingFrameTime {
+                parse_error: None,
+                line: last_line_num!(),
+            })
+            .and_then(|(line_num, line)| {
+                let line = line?;
+                let mut tokens = line.fields();
+
+                let frame_time_kw = tokens.next();
+                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(0).map(|b| *b) {
+                    // do nothing
+                } else {
+                    return Err(LoadMotionError::MissingFrameTime {
+                        parse_error: None,
+                        line: line_num,
+                    });
+                }
+
+                let frame_time_kw = tokens.next();
+                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(1).map(|b| *b) {
+                    // do nothing
+                } else {
+                    return Err(LoadMotionError::MissingFrameTime {
+                        parse_error: None,
+                        line: line_num,
+                    });
+                }
+
+                let parse_frame_time = |token: Option<&BStr>| {
+                    if let Some(frame_time) = token {
+                        let frame_time_secs = try_parse::<f64, _>(frame_time).map_err(|e| {
+                            LoadMotionError::MissingFrameTime {
+                                parse_error: Some(e),
+                                line: line_num,
+                            }
+                        })?;
+                        Ok(fraction_seconds_to_duration(frame_time_secs))
+                    } else {
+                        Err(LoadMotionError::MissingFrameTime {
+                            parse_error: None,
+                            line: line_num,
+                        })
+                    }
+                };
+
+                match tokens.next() {
+                    Some(tok) if tok == B(":") => parse_frame_time(tokens.next()),
+                    Some(tok) => parse_frame_time(Some(tok)),
+                    None => Err(LoadMotionError::MissingNumFrames {
+                        parse_error: None,
+                        line: line_num,
+                    }),
+                }
+            })?;
+
+        let expected_total_motion_values = self.num_channels * self.num_frames;
+
+        self.motion_values.reserve(expected_total_motion_values);
+
+        for (line_num, line) in lines {
+            let line = line?;
+            let tokens = line.fields();
+            for (channel_index, token) in tokens.enumerate() {
+                let motion: f32 =
+                    try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
+                        parse_error: e,
+                        channel_index,
+                        line: line_num,
+                    })?;
+                self.motion_values.push(motion);
+            }
+        }
+
+        if self.motion_values.len() != self.num_channels * self.num_frames {
+            return Err(LoadMotionError::MotionCountMismatch {
+                actual_total_motion_values: self.motion_values.len(),
+                expected_total_motion_values,
+                expected_num_frames: self.num_frames,
+                expected_num_clips: self.num_channels,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Returns a `Frames` iterator over the frames of the bvh.
+    #[inline]
+    pub fn frames(&self) -> Frames<'_> {
+        Frames {
+            motion_values: &self.motion_values[..],
+            num_channels: self.num_channels,
+            num_frames: self.num_frames,
+            curr_frame: 0,
+        }
+    }
+
+    /// Returns a mutable iterator over the frames of the bvh.
+    #[inline]
+    pub fn frames_mut(&mut self) -> FramesMut<'_> {
+        FramesMut {
+            motion_values: &mut self.motion_values[..],
+            num_channels: self.num_channels,
+            num_frames: self.num_frames,
+            curr_frame: 0,
+        }
+    }
+
+    /// Gets the motion value at `frame` and `Channel`.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if `frame` is greater than `self.num_frames()`.
+    #[inline]
+    pub fn get_motion(&self, frame: usize, channel: &Channel) -> f32 {
+        *self.frames().nth(frame).unwrap().index(channel)
+    }
+
+    /// Returns the motion value at `frame` and `channel` if they are in bounds,
+    /// `None` otherwise.
+    #[inline]
+    pub fn try_get_motion(&self, frame: usize, channel: &Channel) -> Option<f32> {
+        self.frames()
+            .nth(frame)
+            .and_then(|f| f.get(channel))
+            .map(|m| *m)
+    }
+
+    /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if `frame` is greater than `self.num_frames()`.
+    #[inline]
+    pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
+        self.try_set_motion(frame, channel, new_motion).unwrap();
+    }
+
+    /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
+    ///
+    /// # Notes
+    ///
+    /// Returns `Ok(())` if the `motion` value was successfully set, and `Err(())` if
+    /// the operation was out of bounds.
+    #[inline]
+    pub fn try_set_motion(
+        &mut self,
+        frame: usize,
+        channel: &Channel,
+        new_motion: f32,
+    ) -> Result<(), ()> {
+        if let Some(m) = self
+            .frames_mut()
+            .nth(frame)
+            .and_then(|f| f.get_mut(channel))
+        {
+            *m = new_motion;
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    /// Get the number of frames in the `Bvh`.
+    #[inline]
+    pub fn num_frames(&self) -> usize {
+        self.num_frames
+    }
+
+    /// Get the number of channels in the `Bvh`.
+    #[inline]
+    pub fn num_channels(&self) -> usize {
+        self.num_channels
+    }
+
+    /// Get the duration each frame should play for in the `Bvh`.
+    #[inline]
+    pub fn frame_time(&self) -> &Duration {
+        &self.frame_time
+    }
+
+    /// Set the duration each frame should play for in the `Bvh` to `new_frame_time`.
+    #[inline]
+    pub fn set_frame_time(&mut self, new_frame_time: Duration) {
+        self.frame_time = new_frame_time;
+    }
+
     #[allow(unused)]
     fn write_joints(&self, writer: &mut dyn Write) -> Result<(), io::Error> {
         unimplemented!()
@@ -688,294 +934,12 @@ impl fmt::Display for Axis {
     }
 }
 
-/// A struct type which holds information about the animation frames of the `Bvh`.
-#[derive(Clone, Default)]
-pub struct Clips {
-    /// The motion values of the `Frame`.
-    data: Vec<f32>,
-    /// The number of frames in the bvh.
-    num_frames: usize,
-    /// The number of `Channel`s in the bvh.
-    num_channels: usize,
-    /// The total time it takes to play one frame.
-    frame_time: Duration,
-}
-
-impl Clips {
-    fn read_motion(
-        lines: &mut EnumeratedLines<'_>,
-        num_channels: usize,
-    ) -> Result<Self, LoadMotionError> {
-        const MOTION_KEYWORD: &[u8] = b"MOTION";
-        const FRAMES_KEYWORD: &[u8] = b"Frames";
-        const FRAME_TIME_KEYWORDS: &[&[u8]] = &[b"Frame", b"Time:"];
-
-        let mut out_clips = Clips::default();
-        out_clips.num_channels = num_channels;
-
-        macro_rules! last_line_num {
-            () => {
-                lines.last_enumerator().unwrap_or(0)
-            };
-        }
-
-        lines
-            .next()
-            .ok_or(LoadMotionError::MissingMotionSection {
-                line: last_line_num!(),
-            })
-            .and_then(|(line_num, line)| {
-                let line = line?;
-                let line = line.trim();
-                if line == MOTION_KEYWORD {
-                    Ok(())
-                } else {
-                    Err(LoadMotionError::MissingMotionSection { line: line_num })
-                }
-            })?;
-
-        out_clips.num_frames = lines
-            .next()
-            .ok_or(LoadMotionError::MissingNumFrames {
-                parse_error: None,
-                line: last_line_num!(),
-            })
-            .and_then(|(line_num, line)| {
-                let line = line?;
-                let line = line.trim();
-                let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
-
-                if tokens.next().map(BStr::as_bytes) != Some(FRAMES_KEYWORD) {
-                    return Err(LoadMotionError::MissingNumFrames {
-                        parse_error: None,
-                        line: line_num,
-                    });
-                }
-
-                let parse_num_frames = |token: Option<&BStr>| {
-                    if let Some(num_frames) = token {
-                        try_parse::<usize, _>(num_frames)
-                            .map_err(|e| LoadMotionError::MissingNumFrames {
-                                parse_error: Some(e),
-                                line: line_num,
-                            })
-                            .map_err(Into::into)
-                    } else {
-                        Err(LoadMotionError::MissingNumFrames {
-                            parse_error: None,
-                            line: line_num,
-                        })
-                    }
-                };
-
-                match tokens.next() {
-                    Some(tok) if tok == B(":") => parse_num_frames(tokens.next()),
-                    Some(tok) => parse_num_frames(Some(tok)),
-                    None => Err(LoadMotionError::MissingNumFrames {
-                        parse_error: None,
-                        line: line_num,
-                    }),
-                }
-            })?;
-
-        out_clips.frame_time = lines
-            .next()
-            .ok_or(LoadMotionError::MissingFrameTime {
-                parse_error: None,
-                line: last_line_num!(),
-            })
-            .and_then(|(line_num, line)| {
-                let line = line?;
-                let mut tokens = line.fields();
-
-                let frame_time_kw = tokens.next();
-                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(0).map(|b| *b) {
-                    // do nothing
-                } else {
-                    return Err(LoadMotionError::MissingFrameTime {
-                        parse_error: None,
-                        line: line_num,
-                    });
-                }
-
-                let frame_time_kw = tokens.next();
-                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(1).map(|b| *b) {
-                    // do nothing
-                } else {
-                    return Err(LoadMotionError::MissingFrameTime {
-                        parse_error: None,
-                        line: line_num,
-                    });
-                }
-
-                let parse_frame_time = |token: Option<&BStr>| {
-                    if let Some(frame_time) = token {
-                        let frame_time_secs = try_parse::<f64, _>(frame_time).map_err(|e| {
-                            LoadMotionError::MissingFrameTime {
-                                parse_error: Some(e),
-                                line: line_num,
-                            }
-                        })?;
-                        Ok(fraction_seconds_to_duration(frame_time_secs))
-                    } else {
-                        Err(LoadMotionError::MissingFrameTime {
-                            parse_error: None,
-                            line: line_num,
-                        })
-                    }
-                };
-
-                match tokens.next() {
-                    Some(tok) if tok == B(":") => parse_frame_time(tokens.next()),
-                    Some(tok) => parse_frame_time(Some(tok)),
-                    None => Err(LoadMotionError::MissingNumFrames {
-                        parse_error: None,
-                        line: line_num,
-                    }),
-                }
-            })?;
-
-        let expected_total_motion_values = out_clips.num_channels * out_clips.num_frames;
-
-        out_clips.data.reserve(expected_total_motion_values);
-
-        for (line_num, line) in lines {
-            let line = line?;
-            let tokens = line.fields();
-            for (channel_index, token) in tokens.enumerate() {
-                let motion: f32 =
-                    try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
-                        parse_error: e,
-                        channel_index,
-                        line: line_num,
-                    })?;
-                out_clips.data.push(motion);
-            }
-        }
-
-        if out_clips.data.len() != out_clips.num_channels * out_clips.num_frames {
-            return Err(LoadMotionError::MotionCountMismatch {
-                actual_total_motion_values: out_clips.data.len(),
-                expected_total_motion_values,
-                expected_num_frames: out_clips.num_frames,
-                expected_num_clips: out_clips.num_channels,
-            });
-        }
-
-        Ok(out_clips)
-    }
-
-    /// Returns a `Frames` iterator over the frames of the bvh.
-    #[inline]
-    pub fn frames(&self) -> Frames<'_> {
-        Frames {
-            clips: self,
-            curr_frame: 0,
-        }
-    }
-
-    /// Returns a mutable iterator over the frames of the bvh.
-    #[inline]
-    pub fn frames_mut(&mut self) -> FramesMut<'_> {
-        FramesMut {
-            clips: self,
-            curr_frame: 0,
-        }
-    }
-
-    /// Gets the motion value at `frame` and `Channel`.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `frame` is greater than `self.num_frames()`.
-    #[inline]
-    pub fn get_motion(&self, frame: usize, channel: &Channel) -> f32 {
-        *self.frames().nth(frame).unwrap().index(channel)
-    }
-
-    /// Returns the motion value at `frame` and `channel` if they are in bounds,
-    /// `None` otherwise.
-    #[inline]
-    pub fn try_get_motion(&self, frame: usize, channel: &Channel) -> Option<f32> {
-        self.frames()
-            .nth(frame)
-            .and_then(|f| f.get(channel))
-            .map(|m| *m)
-    }
-
-    /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `frame` is greater than `self.num_frames()`.
-    #[inline]
-    pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
-        self.try_set_motion(frame, channel, new_motion).unwrap();
-    }
-
-    /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
-    ///
-    /// # Notes
-    ///
-    /// Returns `Ok(())` if the `motion` value was successfully set, and `Err(())` if
-    /// the operation was out of bounds.
-    #[inline]
-    pub fn try_set_motion(
-        &mut self,
-        frame: usize,
-        channel: &Channel,
-        new_motion: f32,
-    ) -> Result<(), ()> {
-        if let Some(m) = self
-            .frames_mut()
-            .nth(frame)
-            .and_then(|f| f.get_mut(channel))
-        {
-            *m = new_motion;
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-
-    /// Get the number of frames in the `Bvh`.
-    #[inline]
-    pub fn num_frames(&self) -> usize {
-        self.num_frames
-    }
-
-    /// Get the number of channels in the `Bvh`.
-    #[inline]
-    pub fn num_channels(&self) -> usize {
-        self.num_channels
-    }
-
-    /// Get the duration each frame should play for in the `Bvh`.
-    #[inline]
-    pub fn frame_time(&self) -> &Duration {
-        &self.frame_time
-    }
-
-    /// Set the duration each frame should play for in the `Bvh` to `new_frame_time`.
-    #[inline]
-    pub fn set_frame_time(&mut self, new_frame_time: Duration) {
-        self.frame_time = new_frame_time;
-    }
-}
-
-impl fmt::Debug for Clips {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for frame in self.frames() {
-            fmt::Debug::fmt(&frame, f)?;
-        }
-        Ok(())
-    }
-}
-
 /// An iterator over the frames of a `Bvh`.
 #[derive(Debug)]
 pub struct Frames<'a> {
-    clips: &'a Clips,
+    motion_values: &'a [f32],
+    num_channels: usize,
+    num_frames: usize,
     curr_frame: usize,
 }
 
@@ -983,15 +947,17 @@ impl<'a> Iterator for Frames<'a> {
     type Item = &'a Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let range = frames_iter_logic(&self.clips, &mut self.curr_frame)?;
-        Some(From::from(&self.clips.data[range]))
+        let range = frames_iter_logic(self.num_channels, self.num_frames, &mut self.curr_frame)?;
+        Some(Frame::from_slice(&self.motion_values[range]))
     }
 }
 
 /// A mutable iterator over the frames of a `Bvh`.
 #[derive(Debug)]
 pub struct FramesMut<'a> {
-    clips: &'a mut Clips,
+    motion_values: &'a mut [f32],
+    num_channels: usize,
+    num_frames: usize,
     curr_frame: usize,
 }
 
@@ -999,27 +965,28 @@ impl<'a> Iterator for FramesMut<'a> {
     type Item = &'a mut Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let range = frames_iter_logic(&self.clips, &mut self.curr_frame)?;
+        let range = frames_iter_logic(self.num_channels, self.num_frames, &mut self.curr_frame)?;
         unsafe {
             // Cast the anonymous lifetime to the 'a lifetime to avoid E0495.
-            Some(mem::transmute::<&mut Frame, &'a mut Frame>(From::from(
-                &mut self.clips.data[range],
-            )))
+            Some(mem::transmute::<&mut Frame, &'a mut Frame>(
+                Frame::from_mut_slice(&mut self.motion_values[range]),
+            ))
         }
     }
 }
 
 #[inline(always)]
-fn frames_iter_logic(clips: &Clips, curr_frame: &mut usize) -> Option<Range<usize>> {
-    let nchans = clips.num_channels;
-    let nframes = clips.num_frames;
-
-    if nframes == 0 || *curr_frame >= nframes {
+fn frames_iter_logic(
+    num_channels: usize,
+    num_frames: usize,
+    curr_frame: &mut usize,
+) -> Option<Range<usize>> {
+    if num_frames == 0 || *curr_frame >= num_frames {
         return None;
     }
 
-    let start = *curr_frame * nchans;
-    let end = start + nchans;
+    let start = *curr_frame * num_channels;
+    let end = start + num_channels;
 
     *curr_frame += 1;
 
@@ -1037,21 +1004,17 @@ impl fmt::Debug for Frame {
     }
 }
 
-impl<'a> From<&'a [f32]> for &'a Frame {
+impl Frame {
     #[inline]
-    fn from(frame_motions: &'a [f32]) -> Self {
+    fn from_slice<'a>(frame_motions: &'a [f32]) -> &'a Frame {
         unsafe { &*(frame_motions as *const [f32] as *const Frame) }
     }
-}
 
-impl<'a> From<&'a mut [f32]> for &'a mut Frame {
     #[inline]
-    fn from(frame_motions: &'a mut [f32]) -> Self {
+    fn from_mut_slice<'a>(frame_motions: &'a mut [f32]) -> &'a mut Frame {
         unsafe { &mut *(frame_motions as *mut [f32] as *mut Frame) }
     }
-}
 
-impl Frame {
     /// Returns a reference to the motion element corresponding to `Channel`, or `None`
     /// if out of bounds.
     #[inline]

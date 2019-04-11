@@ -12,7 +12,6 @@ categories = ["parsing", "rendering::data-formats"]
 license = "MIT"
 
 [dependencies]
-atomic_refcell = "0.1"
 bstr = "0.1.0"
 lexical = "2.1"
 mint = "0.5"
