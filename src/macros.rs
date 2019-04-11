@@ -529,7 +529,54 @@ mod tests {
             0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
         };
 
-        // @TODO: test joints
+        {
+            use bvh_anim::{ChannelType, JointData};
+            use mint::Vector3;
+
+            fn check_joint<V0: Into<Vector3<f32>>, V1: Into<Vector3<f32>>, O: Into<Option<V1>>>(
+                joint: &JointData,
+                expected_name: &str,
+                expected_offset: V0,
+                channels: &[ChannelType],
+                end_site: O,
+            ) {
+                assert_eq!(joint.name(), expected_name);
+                assert_eq!(*joint.offset(), expected_offset.into());
+                for (chan, expected_chan) in joint
+                    .channels()
+                    .iter()
+                    .map(|c| c.channel_type())
+                    .zip(channels.iter())
+                {
+                    assert_eq!(chan, *expected_chan);
+                }
+                let end_site = end_site.into().map(Into::into);
+                assert_eq!(joint.end_site(), end_site.as_ref());
+            }
+
+            let mut joints = bvh.joints();
+
+            check_joint::<[_; 3], [f32; 3], _>(
+                joints.next().unwrap().data(),
+                "Base",
+                [0.0, 0.0, 0.0],
+                &[
+                    ChannelType::PositionX, ChannelType::PositionY, ChannelType::PositionZ,
+                    ChannelType::RotationZ, ChannelType::RotationX, ChannelType::RotationY,
+                ],
+                None
+            );
+
+            check_joint(
+                joints.next().unwrap().data(),
+                "End",
+                [0.0, 0.0, 15.0],
+                &[
+                    ChannelType::RotationZ, ChannelType::RotationX, ChannelType::RotationY,
+                ],
+                [0.0, 0.0, 30.0],
+            );
+        }
 
         assert_eq!(*bvh.frame_time(), Duration::from_nanos(33333333));
 
