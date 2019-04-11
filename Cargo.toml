@@ -8,11 +8,11 @@ readme = "Readme.md"
 edition = "2018"
 description = "A .bvh file parser"
 keywords = ["bvh", "biovision", "parser", "animation", "skeletal"]
-categories = ["parsing", "rendering::data-formats"]
+categories = ["rendering::data-formats"]
 license = "MIT"
 
 [dependencies]
-bstr = "0.1.0"
+bstr = "0.1.2"
 lexical = "2.1"
 mint = "0.5"
 num-traits = "0.2"
