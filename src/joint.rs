@@ -345,6 +345,7 @@ impl fmt::Debug for Joints<'_> {
 }
 
 impl<'a> Joints<'a> {
+    /// Create a `Joints` iterator over all the `joints` in a `Bvh` file.
     pub(crate) fn iter_root(
         joints: &'a [JointData]
         //clips: &'a AtomicRefCell<Clips>,
@@ -357,6 +358,13 @@ impl<'a> Joints<'a> {
         }
     }
 
+    /// Create a `Joints` iterator over all the child joints of `joint`.
+    ///
+    /// # Notes
+    ///
+    /// This function only iterates over the direct children of `joint`. If you
+    /// need to iterate through to the end sites of all children, you will
+    /// need to continually call `iter_children` on each `Joint` in the iterator.
     pub(crate) fn iter_children(joint: &Joint<'a>) -> Self {
         let first_child = joint
             .joints
@@ -387,15 +395,9 @@ impl<'a> Joints<'a> {
 
     pub(crate) fn nth_child(
         joint: &Joint<'a>,
-        joints: &[JointData],
         child: usize,
     ) -> Option<usize> {
-        unimplemented!()
-    }
-
-    pub(crate) fn get_next_joint(&self, j: Option<&Joint<'a>>) -> usize {
-        //if self.
-        unimplemented!()
+        Joints::iter_children(joint).nth(child).map(|joint| joint.index)
     }
 }
 
