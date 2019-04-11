@@ -150,7 +150,7 @@ pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
 /// You can also create a `Bvh` using the [`bvh!` macro][`bvh!`].
 ///
 /// [`bvh!`]: macro.bvh.html
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct Bvh {
     /// The list of joints. If the root joint exists, it is always at
     /// index `0`.

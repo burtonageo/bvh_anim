@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Internal representation of a joint.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum JointData {
     /// Root of the skeletal heirarchy.
     Root {
@@ -291,7 +291,7 @@ impl fmt::Display for JointName {
 
 /// Data private to joints.
 #[doc(hidden)]
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct JointPrivateData {
     /// Index of this `Joint` in the array.
     pub(crate) self_index: usize,
