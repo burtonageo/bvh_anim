@@ -666,7 +666,12 @@ impl Bvh {
     /// This method will panic if `frame` is greater than `self.num_frames()`.
     #[inline]
     pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
-        self.try_set_motion(frame, channel, new_motion).unwrap();
+        self.try_set_motion(frame, channel, new_motion)
+            .expect(if frame > self.num_frames() {
+                "Frame index out of bounds"
+            } else {
+                "Channel index out of bounds"
+            });
     }
 
     /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
