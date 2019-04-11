@@ -393,14 +393,14 @@ impl BvhLiteralBuilder {
 
     pub fn push_joint_name(&mut self, joint_name: &str) {
         let joint_name = JointName(joint_name.bytes().collect());
-        self.last_joint().map(|mut joint| {
+        self.last_joint().map(|joint| {
             joint.set_name(joint_name);
         });
     }
 
     pub fn push_channel(&mut self, channel: ChannelType) {
         let channel = Channel::new(channel, self.current_channel_index);
-        self.last_joint().map(|mut joint| match *joint {
+        self.last_joint().map(|joint| match *joint {
             JointData::Root {
                 ref mut channels, ..
             } => {
@@ -416,7 +416,7 @@ impl BvhLiteralBuilder {
     }
 
     pub fn push_joint_offset(&mut self, offset: mint::Vector3<f32>, is_end_site: bool) {
-        self.last_joint().map(|mut joint| {
+        self.last_joint().map(|joint| {
             joint.set_offset(offset, is_end_site);
         });
     }
