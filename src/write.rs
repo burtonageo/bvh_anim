@@ -339,6 +339,7 @@ impl WriteOptions {
                 None => return false,
                 Some(frame) => {
                     let motion_values = frame
+                        .as_slice()
                         .iter()
                         .map(|motion| {
                             format!("{:.*}", self.motion_values_significant_figures, motion)

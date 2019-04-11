@@ -589,7 +589,7 @@ mod tests {
         let mut num_frames = 0;
         for frame in bvh.frames() {
             let mut num_channels = 0;
-            for channel in frame.iter() {
+            for channel in frame.as_slice().iter() {
                 assert_eq!(*channel, 0.0);
                 num_channels += 1;
             }

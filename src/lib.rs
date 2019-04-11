@@ -85,7 +85,7 @@ use std::{
     io::{self, Cursor, Write},
     iter::Enumerate,
     mem,
-    ops::{Deref, DerefMut, Index, IndexMut, Range},
+    ops::{Index, IndexMut, Range},
     str::{self, FromStr},
     time::Duration,
 };
@@ -682,6 +682,17 @@ impl Frame {
         unsafe { &mut *(frame_motions as *mut [f32] as *mut Frame) }
     }
 
+    /// Returns the number of motion values in the `Frame`.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns true if the `Frame` has a length of 0.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Returns a reference to the motion element corresponding to `Channel`, or `None`
     /// if out of bounds.
     #[inline]
@@ -694,6 +705,16 @@ impl Frame {
     #[inline]
     pub fn get_mut(&mut self, channel: &Channel) -> Option<&mut f32> {
         self.0.get_mut(channel.motion_index)
+    }
+
+    /// Get the `Frame` as a slice of `f32` values.
+    pub fn as_slice(&self) -> &[f32] {
+        &self.0[..]
+    }
+
+    /// Get the `Frame` as a mutable slice of `f32` values.
+    pub fn as_mut_slice(&mut self) -> &mut [f32] {
+        &mut self.0[..]
     }
 }
 
@@ -708,21 +729,6 @@ impl Index<&Channel> for Frame {
 impl IndexMut<&Channel> for Frame {
     fn index_mut(&mut self, channel: &Channel) -> &mut Self::Output {
         self.0.index_mut(channel.motion_index)
-    }
-}
-
-impl Deref for Frame {
-    type Target = [f32];
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Frame {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
