@@ -61,9 +61,9 @@
 //! }
 //! ```
 //!
-//! More information on this file format can be found [here](here).
+//! More information on this file format can be found [here][bvh_html].
 //!
-//! [here]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
+//! [bvh_html]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
 
 #[macro_use]
 mod macros;
