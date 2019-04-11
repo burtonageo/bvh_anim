@@ -239,6 +239,29 @@ macro_rules! parse_bvh_internal {
             $( $joints:tt )*
         }
         MOTION
+        Frames: 0
+        Frame Time: $frame_time:literal
+    )) => {
+        {
+            use bvh_anim::parse_joints_internal;
+
+            $builder.push_root();
+            $builder.push_joint_name(stringify!($root_name));
+
+            parse_joints_internal!($builder ($($joints)*));
+
+            $builder.set_num_frames(0);
+            $builder.set_frame_time(f64::from($frame_time));
+        }
+    };
+
+    ($builder:ident (
+        HIERARCHY
+        ROOT $root_name:ident
+        {
+            $( $joints:tt )*
+        }
+        MOTION
         Frames: $num_frames:literal
         Frame Time: $frame_time:literal
         $(
