@@ -381,12 +381,13 @@ impl Bvh {
             let line = line?;
             let tokens = line.fields();
             for (channel_index, token) in tokens.enumerate() {
-                let motion: f32 =
-                    try_parse(token).map_err(|e| LoadMotionError::ParseMotionSection {
+                let motion = try_parse::<f32, _>(token).map_err(|e| {
+                    LoadMotionError::ParseMotionSection {
                         parse_error: e,
                         channel_index,
                         line: line_num,
-                    })?;
+                    }
+                })?;
                 self.motion_values.push(motion);
             }
         }
