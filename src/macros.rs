@@ -283,9 +283,7 @@ macro_rules! parse_bvh_internal {
             $builder.set_num_frames($num_frames as usize);
             $builder.set_frame_time(f64::from($frame_time));
 
-            $(
-                $builder.push_motion(f32::from($motion));
-            )*
+            $builder.set_motion_values(vec![ $( f32::from($motion) ),* ]);
 
             assert!($builder.check_valid_motion());
         }
@@ -479,8 +477,8 @@ impl BvhLiteralBuilder {
     }
 
     #[inline]
-    pub fn push_motion(&mut self, motion: f32) {
-        self.bvh.motion_values.push(motion);
+    pub fn set_motion_values(&mut self, motion_values: Vec<f32>) {
+        self.bvh.motion_values = motion_values;
     }
 
     pub fn check_valid_motion(&self) -> bool {
