@@ -447,6 +447,13 @@ impl<'a> Iterator for JointsMut<'a> {
     }
 }
 
+impl fmt::Debug for JointsMut<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("JointsMut { .. }")
+    }
+}
+
 /*
 
 impl<'a> Iterator for JointsMut<'a> {
@@ -454,13 +461,6 @@ impl<'a> Iterator for JointsMut<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.joints.next().map(JointMut::from_joint)
-    }
-}
-
-impl fmt::Debug for JointsMut<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("JointsMut { .. }")
     }
 }
 
