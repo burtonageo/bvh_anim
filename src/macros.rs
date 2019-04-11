@@ -352,7 +352,7 @@ macro_rules! bvh {
         Frame Time: $frame_time:literal
         $(
             $motion:literal
-        )*
+        )+
     ) => {
         {
             use bvh_anim::parse_joints_internal;
@@ -369,7 +369,7 @@ macro_rules! bvh {
             builder.set_num_frames($num_frames as usize);
             builder.set_frame_time(f64::from($frame_time));
 
-            builder.set_motion_values(vec![ $( f32::from($motion) ),* ]);
+            builder.set_motion_values(vec![ $( f32::from($motion) ),+ ]);
 
             assert!(builder.check_valid_motion());
 
