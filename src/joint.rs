@@ -335,7 +335,7 @@ pub struct JointPrivateData {
 
 impl JointPrivateData {
     #[inline]
-    pub(crate) fn new(self_index: usize, parent_index: usize, depth: usize) -> Self {
+    pub(crate) const fn new(self_index: usize, parent_index: usize, depth: usize) -> Self {
         JointPrivateData {
             self_index,
             parent_index,
@@ -344,12 +344,7 @@ impl JointPrivateData {
     }
 
     #[inline]
-    pub(crate) fn empty() -> Self {
-        JointPrivateData::new(0, 0, 0)
-    }
-
-    #[inline]
-    pub(crate) fn new_default() -> Self {
+    pub(crate) const fn empty() -> Self {
         Self::new(0, 0, 0)
     }
 }

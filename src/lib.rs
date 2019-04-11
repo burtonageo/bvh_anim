@@ -330,19 +330,19 @@ impl Bvh {
 
     /// Get the number of frames in the `Bvh`.
     #[inline]
-    pub fn num_frames(&self) -> usize {
+    pub const fn num_frames(&self) -> usize {
         self.num_frames
     }
 
     /// Get the number of channels in the `Bvh`.
     #[inline]
-    pub fn num_channels(&self) -> usize {
+    pub const fn num_channels(&self) -> usize {
         self.num_channels
     }
 
     /// Get the duration each frame should play for in the `Bvh`.
     #[inline]
-    pub fn frame_time(&self) -> &Duration {
+    pub const fn frame_time(&self) -> &Duration {
         &self.frame_time
     }
 
@@ -378,7 +378,7 @@ pub struct Channel {
 
 impl Channel {
     #[inline]
-    fn new(channel_type: ChannelType, motion_index: usize) -> Self {
+    const fn new(channel_type: ChannelType, motion_index: usize) -> Self {
         Channel {
             channel_type,
             motion_index,
@@ -387,13 +387,13 @@ impl Channel {
 
     /// Returns the `ChannelType` to which this `Channel` corresponds.
     #[inline]
-    pub fn channel_type(&self) -> ChannelType {
+    pub const fn channel_type(&self) -> ChannelType {
         self.channel_type
     }
 
     /// Returns the index of the motion value to which this `Channel` corresponds.
     #[inline]
-    pub fn motion_index(&self) -> usize {
+    pub const fn motion_index(&self) -> usize {
         self.motion_index
     }
 }
