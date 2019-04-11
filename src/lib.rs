@@ -298,12 +298,7 @@ impl Bvh {
     /// This method will panic if `frame` is greater than `self.num_frames()`.
     #[inline]
     pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
-        self.try_set_motion(frame, channel, new_motion)
-            .expect(if frame > self.num_frames() {
-                "Frame index out of bounds"
-            } else {
-                "Channel index out of bounds"
-            });
+        self.try_set_motion(frame, channel, new_motion).unwrap();
     }
 
     /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
@@ -313,22 +308,23 @@ impl Bvh {
     /// Returns `Ok(())` if the `motion` value was successfully set, and `Err(())` if
     /// the operation was out of bounds.
     #[inline]
-    pub fn try_set_motion(
+    pub fn try_set_motion<'a>(
         &mut self,
         frame: usize,
-        channel: &Channel,
+        channel: &'a Channel,
         new_motion: f32,
-    ) -> Result<(), ()> {
-        if let Some(m) = self
+    ) -> Result<(), SetMotionError<'a>> {
+        let m = self
             .frames_mut()
             .nth(frame)
-            .and_then(|f| f.get_mut(channel))
-        {
+            .ok_or(SetMotionError::BadFrame(frame))
+            .and_then(|f| {
+                f.get_mut(channel)
+                    .ok_or(SetMotionError::BadChannel(channel))
+            })?;
+
             *m = new_motion;
             Ok(())
-        } else {
-            Err(())
-        }
     }
 
     /// Get the number of frames in the `Bvh`.

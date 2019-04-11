@@ -1,7 +1,7 @@
 //! Errors which may occur when manipulating `Bvh` files.
 
 use bstr::BString;
-use crate::Axis;
+use crate::{Axis, Channel};
 use lexical::Error as LexicalError;
 use std::{error::Error as StdError, fmt, io};
 
@@ -383,6 +383,40 @@ impl From<io::Error> for LoadMotionError {
     #[inline]
     fn from(e: io::Error) -> Self {
         LoadMotionError::Io(e)
+    }
+}
+
+/// An error which may occurr when setting a motion which is out
+/// of bounds.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SetMotionError<'a> {
+    /// The frame was out of bounds.
+    BadFrame(usize),
+    /// The channel was out of bounds.
+    BadChannel(&'a Channel),
+}
+
+impl fmt::Display for SetMotionError<'_> {
+    #[inline]
+    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            SetMotionError::BadFrame(frame) => write!(fmtr, "Frame {} was out of bounds", frame),
+            SetMotionError::BadChannel(channel) => write!(
+                fmtr,
+                "Channel {} of the bvh was out of bounds",
+                channel.motion_index
+            ),
+        }
+    }
+}
+
+impl StdError for SetMotionError<'_> {
+    #[inline]
+    fn description(&self) -> &'static str {
+        match *self {
+            SetMotionError::BadFrame(_) => "The frame was out of bounds",
+            SetMotionError::BadChannel(_) => "The channel was out of bounds",
+        }
     }
 }
 
