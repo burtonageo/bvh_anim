@@ -135,7 +135,7 @@ impl<I: Iterator> Iterator for CachedEnumerate<I> {
 type EnumeratedLines<'a> = CachedEnumerate<ByteLines<&'a mut dyn BufReadExt>>;
 
 impl<'a> EnumeratedLines<'a> {
-    pub fn next_non_empty_line(&mut self) -> Option<(usize, io::Result<BString>)> {
+    pub fn next_non_empty_line(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut next = self.next();
         loop {
             match next {
@@ -732,7 +732,14 @@ impl DerefMut for Frame {
     }
 }
 
-fn fraction_seconds_to_duration(x: f64) -> Duration {
     const NSEC_FACTOR: f64 = 1000_000_000.0;
+
+#[inline]
+fn fraction_seconds_to_duration(x: f64) -> Duration {
     Duration::from_nanos((x * NSEC_FACTOR) as u64)
+}
+
+#[inline]
+fn duation_to_fractional_seconds(duration: &Duration) -> f64 {
+    duration.subsec_nanos() as f64 / NSEC_FACTOR
 }

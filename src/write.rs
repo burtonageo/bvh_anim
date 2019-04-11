@@ -3,23 +3,46 @@
 //! Contains options for `bvh` file formatting.
 
 use bstr::{BStr, BString, B};
-use crate::Bvh;
+use crate::{duation_to_fractional_seconds, Bvh, Frame, Frames, Joint, Joints};
+use mint::Vector3;
+use smallvec::SmallVec;
 use std::{
     fmt,
     io::{self, Write},
     iter,
+    mem,
     num::NonZeroUsize,
 };
 
 /// Specify formatting options for writing a `Bvh`.
-#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct WriteOptions {
     /// Which indentation style to use for nested bones.
     pub indent: IndentStyle,
     /// Which style new line terminator to use when writing the `bvh`.
     pub line_terminator: LineTerminator,
+    /// Number of significant figures to use when writing `OFFSET` values.
+    pub offset_significant_figures: usize,
+    /// Number of significant figures to use when writing the `Frame Time` value.
+    pub frame_time_significant_figures: usize,
+    /// Number of significant figures to use when writing `MOTION` values.
+    pub motion_values_significant_figures: usize,
     #[doc(hidden)]
     _nonexhaustive: (),
+}
+
+impl Default for WriteOptions {
+    #[inline]
+    fn default() -> Self {
+        WriteOptions {
+            indent: Default::default(),
+            line_terminator: Default::default(),
+            offset_significant_figures: 5,
+            frame_time_significant_figures: 7,
+            motion_values_significant_figures: 2,
+            _nonexhaustive: (),
+        }
+    }
 }
 
 impl WriteOptions {
@@ -31,13 +54,13 @@ impl WriteOptions {
 
     /// Output the `Bvh` file to the `writer` with the given options.
     pub fn write<W: Write>(&self, bvh: &Bvh, writer: &mut W) -> io::Result<()> {
-        let mut curr_line = BString::new();
+        let mut curr_chunk = BString::new();
         let mut curr_bytes_written = 0usize;
         let mut curr_string_len = 0usize;
-        let mut iter_state = WriteOptionsIterState::new(bvh);
+        let mut iter_state = WriteOptionsIterState::new();
 
-        while self.next_line(bvh, &mut curr_line, &mut iter_state) != false {
-            let bytes: &[u8] = curr_line.as_ref();
+        while self.next_chunk(bvh, &mut curr_chunk, &mut iter_state) != false {
+            let bytes: &[u8] = curr_chunk.as_ref();
             curr_string_len += bytes.len();
             curr_bytes_written += writer.write(bytes)?;
 
@@ -53,12 +76,12 @@ impl WriteOptions {
 
     /// Output the `Bvh` file to the `string` with the given options.
     pub fn write_to_string(&self, bvh: &Bvh) -> BString {
-        let mut curr_line = BString::new();
+        let mut curr_chunk = BString::new();
         let mut out_string = BString::new();
-        let mut iter_state = WriteOptionsIterState::new(bvh);
+        let mut iter_state = WriteOptionsIterState::new();
 
-        while self.next_line(bvh, &mut curr_line, &mut iter_state) != false {
-            out_string.push(&curr_line);
+        while self.next_chunk(bvh, &mut curr_chunk, &mut iter_state) != false {
+            out_string.push(&curr_chunk);
         }
 
         out_string
@@ -66,7 +89,7 @@ impl WriteOptions {
 
     /// Sets `indent` on `self` to the new `IndentStyle`.
     #[inline]
-    pub fn with_indent(self, indent: IndentStyle) -> Self {
+    pub const fn with_indent(self, indent: IndentStyle) -> Self {
         WriteOptions { indent, ..self }
     }
 
@@ -79,34 +102,279 @@ impl WriteOptions {
         }
     }
 
-    /// Get the next line of the written bvh file. This function is
-    /// structured so that the `line` string can be continually
+    /// Sets `offset_significant_figures` on `self` to the new `offset_significant_figures`.
+    #[inline]
+    pub const fn with_offset_significant_figures(self, offset_significant_figures: usize) -> Self {
+        WriteOptions {
+            offset_significant_figures,
+            ..self
+        }
+    } 
+
+    /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
+    #[inline]
+    pub const fn with_frame_time_significant_figures(self, frame_time_significant_figures: usize) -> Self {
+        WriteOptions {
+            frame_time_significant_figures,
+            ..self
+        }
+    }
+
+    /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
+    #[inline]
+    pub const fn with_motion_values_significant_figures(self, motion_values_significant_figures: usize) -> Self {
+        WriteOptions {
+            motion_values_significant_figures,
+            ..self
+        }
+    }
+
+    // @TODO: Refactor all of this
+    /// Get the next text chunk of the written bvh file. This function is
+    /// structured so that the `chunk` string can be continually
     /// re-used without allocating and de-allocating memory.
     ///
     /// # Returns
     ///
     /// Returns `true` when there are still more lines available,
     /// `false` when all lines have been extracted.
-    fn next_line(
+    fn next_chunk<'a, 'b: 'a>(
         &self,
-        bvh: &Bvh,
-        line: &mut BString,
-        iter_state: &mut WriteOptionsIterState,
+        bvh: &'b Bvh,
+        chunk: &mut BString,
+        iter_state: &'a mut WriteOptionsIterState<'b>,
     ) -> bool {
-        line.clear();
-        false
+        chunk.clear();
+
+        match *iter_state {
+            WriteOptionsIterState::WriteHierarchy { ref mut written } => {
+                if !*written {
+                    *chunk = BString::from("HIERARCHY");
+                    chunk.push(self.line_terminator.as_str());
+                    *written = true;
+                } else {
+                    let mut joints = bvh.joints();
+                    *iter_state = WriteOptionsIterState::WriteJoints {
+                        current_joint: joints.next(),
+                        joints,
+                        wrote_name: false,
+                        wrote_offset: false,
+                        wrote_channels: false,
+                    };
+                }
+            }
+            WriteOptionsIterState::WriteJoints {
+                current_joint: None,
+                ..
+            } => {
+                *iter_state = WriteOptionsIterState::WriteMotion { written: false };
+            }
+            WriteOptionsIterState::WriteJoints {
+                ref mut joints,
+                ref mut current_joint,
+                ref mut wrote_name,
+                ref mut wrote_offset,
+                ref mut wrote_channels,
+            } => {
+                if let Some(ref joint) = current_joint {
+                    let joint_data = joint.data();
+                    let mut depth = joint_data.depth();
+                    if *wrote_name {
+                        depth += 1
+                    }
+
+                    match (&mut *wrote_name, &mut *wrote_offset, &mut *wrote_channels) {
+                        (&mut false, _, _) => {
+                            // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
+                            // allocation
+                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                            if joint_data.is_root() {
+                                chunk.push(B("ROOT "));
+                            } else {
+                                chunk.push(B("JOINT "));
+                            }
+                            chunk.push(joint_data.name());
+                            chunk.push(self.line_terminator.as_str());
+                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                            chunk.push("{");
+                            chunk.push(self.line_terminator.as_str());
+
+                            *wrote_name = true;
+                        }
+                        (&mut true, &mut false, _) => {
+                            // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
+                            // allocation
+                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+
+                            let Vector3 { x, y, z } = joint_data.offset();
+                            chunk.push(
+                                format!("OFFSET {:.*} {:.*} {:.*}",
+                                self.offset_significant_figures, x,
+                                self.offset_significant_figures, y,
+                                self.offset_significant_figures, z,
+                            ));
+                            chunk.push(self.line_terminator.as_str());
+                            *wrote_offset = true;
+                        }
+                        (&mut true, &mut true, &mut false) => {
+                            // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
+                            // allocation
+                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                            
+                            let channels = joint_data.channels();
+                            let channels_str = channels
+                                .iter()
+                                .map(|ch| ch.channel_type().as_str())
+                                .collect::<SmallVec<[_; 6]>>()
+                                .join(" ");
+
+                            chunk.push(format!("CHANNELS {} {}", channels.len(), channels_str));
+                            chunk.push(self.line_terminator.as_str());
+                            *wrote_channels = true;
+                        }
+                        (&mut true, &mut true, &mut true) => {
+                            if let Some(end_site) = joint_data.end_site() {
+                                let Vector3 { x, y, z } = end_site;
+                                chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                                chunk.push("End Site");
+                                chunk.push(self.line_terminator.as_str());
+
+                                chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                                chunk.push("{");
+                                chunk.push(self.line_terminator.as_str());
+
+                                chunk.push(self.indent.prefix_chars(depth + 1).collect::<Vec<_>>());
+                                chunk.push(
+                                    format!("OFFSET {:.*} {:.*} {:.*}",
+                                    self.offset_significant_figures, x,
+                                    self.offset_significant_figures, y,
+                                    self.offset_significant_figures, z,
+                                ));
+                                chunk.push(self.line_terminator.as_str());
+
+                                chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                                chunk.push("}");
+                                chunk.push(self.line_terminator.as_str());
+
+                                let next_joint = joints.next();
+                                let prev_joint = mem::replace(current_joint, next_joint).unwrap();
+
+                                let (curr_depth, mut depth_difference) = if let Some(ref curr_j) = *current_joint {
+                                    let curr_depth = curr_j.data().depth();
+                                    (curr_depth, Some(prev_joint.data().depth() - curr_depth))
+                                } else {
+                                    (0, Some(prev_joint.data().depth()))
+                                };
+   
+                                while let Some(d) = depth_difference  {
+                                    chunk.push(self.indent.prefix_chars(curr_depth + d).collect::<Vec<_>>());
+                                    chunk.push("}");
+                                    chunk.push(self.line_terminator.as_str());
+                                    depth_difference = depth_difference.and_then(|d| d.checked_sub(1));
+                                }
+                            } else {
+                                *current_joint = joints.next();
+                            }
+                            *wrote_name = false; *wrote_offset = false; *wrote_channels = false;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            WriteOptionsIterState::WriteMotion { ref mut written } => {
+                if !*written {
+                    *chunk = BString::from("MOTION");
+                    chunk.push(self.line_terminator.as_bstr());
+                    *written = true;
+                } else {
+                    *iter_state = WriteOptionsIterState::WriteNumFrames { written: false };
+                }
+            }
+            WriteOptionsIterState::WriteNumFrames { ref mut written } => {
+                if !*written {
+                    *chunk = BString::from(format!("Frames: {}", bvh.num_frames()));
+                    chunk.push(self.line_terminator.as_bstr());
+                    *written = true;
+                } else {
+                    *iter_state = WriteOptionsIterState::WriteFrameTime { written: false };
+                }
+            }
+            WriteOptionsIterState::WriteFrameTime { ref mut written } => {
+                if !*written {
+                    *chunk = BString::from(format!(
+                        "Frame Time: {:.*}",
+                        self.frame_time_significant_figures,
+                        duation_to_fractional_seconds(bvh.frame_time())
+                    ));
+                    chunk.push(self.line_terminator.as_bstr());
+                    *written = true;
+                } else {
+                    let mut frames = bvh.frames();
+                    *iter_state = WriteOptionsIterState::WriteFrames {
+                        current_frame: frames.next(),
+                        frames,
+                    };
+                }
+            }
+            WriteOptionsIterState::WriteFrames {
+                ref mut current_frame,
+                ref mut frames,
+            } => match current_frame {
+                None => return false,
+                Some(frame) => {
+                    let motion_values = frame
+                        .iter()
+                        .map(|motion| format!("{:.*}", self.motion_values_significant_figures, motion))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    *chunk = BString::from(motion_values.as_str());
+                    chunk.push(self.line_terminator.as_bstr());
+                    *current_frame = frames.next();
+                }
+            },
+        }
+
+        true
     }
 }
 
 enum WriteOptionsIterState<'a> {
-    WriteBones { bvh: &'a Bvh, curr_bone: usize },
-    WriteMotion { bvh: &'a Bvh, curr_frame: usize },
+    WriteHierarchy {
+        written: bool,
+    },
+    WriteJoints {
+        joints: Joints<'a>,
+        current_joint: Option<Joint<'a>>,
+        wrote_name: bool,
+        wrote_offset: bool,
+        wrote_channels: bool,
+    },
+    WriteMotion {
+        written: bool,
+    },
+    WriteNumFrames {
+        written: bool,
+    },
+    WriteFrameTime {
+        written: bool,
+    },
+    WriteFrames {
+        frames: Frames<'a>,
+        current_frame: Option<&'a Frame>,
+    },
 }
 
-impl<'a> WriteOptionsIterState<'a> {
+impl WriteOptionsIterState<'_> {
     #[inline]
-    fn new(bvh: &'a Bvh) -> Self {
-        WriteOptionsIterState::WriteBones { bvh, curr_bone: 0 }
+    fn new() -> Self {
+        WriteOptionsIterState::WriteHierarchy { written: false }
+    }
+}
+
+impl Default for WriteOptionsIterState<'_> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
 
