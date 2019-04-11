@@ -134,7 +134,7 @@ impl<I: Iterator> Iterator for CachedEnumerate<I> {
 
 type EnumeratedLines<'a> = CachedEnumerate<ByteLines<&'a mut dyn BufReadExt>>;
 
-impl<'a> EnumeratedLines<'a> {
+impl EnumeratedLines<'_> {
     pub fn next_non_empty_line(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut next = self.next();
         loop {
