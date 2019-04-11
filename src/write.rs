@@ -193,10 +193,25 @@ impl LineTerminator {
         }
     }
 
+    /// Returns the escaped characters of the `LineTerminator` as a `&str`.
+    #[inline]
+    pub fn as_escaped_str(&self) -> &str {
+        match *self {
+            LineTerminator::Unix => "\\n",
+            LineTerminator::Windows => "\\r\\n",
+        }
+    }
+
     /// Return the characters of the `LineTerminator` as a `&BStr`.
     #[inline]
     pub fn as_bstr(&self) -> &BStr {
         B(self.as_str())
+    }
+
+    /// Returns the escaped characters of the `LineTerminator` as a `&BStr`.
+    #[inline]
+    pub fn as_escaped_bstr(&self) -> &BStr {
+        B(self.as_escaped_str())
     }
 }
 
