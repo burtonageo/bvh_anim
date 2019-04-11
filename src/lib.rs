@@ -77,7 +77,7 @@ mod parse;
 
 use bstr::{
     io::{BufReadExt, ByteLines},
-    BStr, BString,
+    BStr, B,
 };
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
