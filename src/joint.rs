@@ -417,6 +417,7 @@ impl<'a> Joints<'a> {
         self.find(|b| b.data().name() == joint_name)
     }
 
+    #[allow(unused)]
     pub(crate) fn nth_child(joint: &Joint<'a>, child: usize) -> Option<usize> {
         Joints::iter_children(joint)
             .nth(child)
@@ -447,6 +448,7 @@ impl<'a> Iterator for Joints<'a> {
 }
 
 /// A mutable iterator over the `Joint`s of a `Bvh` skeleton.
+#[allow(unused)]
 pub struct JointsMut<'a> {
     pub(crate) joints: &'a mut [JointData],
     pub(crate) current_joint: usize,

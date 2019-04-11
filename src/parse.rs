@@ -34,6 +34,7 @@ impl Bvh {
             Finished,
         }
 
+        #[allow(unused)]
         #[derive(Eq, PartialEq)]
         enum NextExpectedLine {
             Hierarchy,
