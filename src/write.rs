@@ -9,8 +9,7 @@ use smallvec::SmallVec;
 use std::{
     fmt,
     io::{self, Write},
-    iter,
-    mem,
+    iter, mem,
     num::NonZeroUsize,
 };
 
@@ -113,7 +112,10 @@ impl WriteOptions {
 
     /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
     #[inline]
-    pub const fn with_frame_time_significant_figures(self, frame_time_significant_figures: usize) -> Self {
+    pub const fn with_frame_time_significant_figures(
+        self,
+        frame_time_significant_figures: usize,
+    ) -> Self {
         WriteOptions {
             frame_time_significant_figures,
             ..self
@@ -122,7 +124,10 @@ impl WriteOptions {
 
     /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
     #[inline]
-    pub const fn with_motion_values_significant_figures(self, motion_values_significant_figures: usize) -> Self {
+    pub const fn with_motion_values_significant_figures(
+        self,
+        motion_values_significant_figures: usize,
+    ) -> Self {
         WriteOptions {
             motion_values_significant_figures,
             ..self
@@ -207,11 +212,14 @@ impl WriteOptions {
                             chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
 
                             let Vector3 { x, y, z } = joint_data.offset();
-                            chunk.push(
-                                format!("OFFSET {:.*} {:.*} {:.*}",
-                                self.offset_significant_figures, x,
-                                self.offset_significant_figures, y,
-                                self.offset_significant_figures, z,
+                            chunk.push(format!(
+                                "OFFSET {:.*} {:.*} {:.*}",
+                                self.offset_significant_figures,
+                                x,
+                                self.offset_significant_figures,
+                                y,
+                                self.offset_significant_figures,
+                                z,
                             ));
                             chunk.push(self.line_terminator.as_str());
                             *wrote_offset = true;
@@ -259,23 +267,31 @@ impl WriteOptions {
                                 let next_joint = joints.next();
                                 let prev_joint = mem::replace(current_joint, next_joint).unwrap();
 
-                                let (curr_depth, mut depth_difference) = if let Some(ref curr_j) = *current_joint {
+                                let (curr_depth, mut depth_difference) =
+                                    if let Some(ref curr_j) = *current_joint {
                                     let curr_depth = curr_j.data().depth();
                                     (curr_depth, Some(prev_joint.data().depth() - curr_depth))
                                 } else {
                                     (0, Some(prev_joint.data().depth()))
                                 };
    
-                                while let Some(d) = depth_difference  {
-                                    chunk.push(self.indent.prefix_chars(curr_depth + d).collect::<Vec<_>>());
+                                while let Some(d) = depth_difference {
+                                    chunk.push(
+                                        self.indent
+                                            .prefix_chars(curr_depth + d)
+                                            .collect::<Vec<_>>(),
+                                    );
                                     chunk.push("}");
                                     chunk.push(self.line_terminator.as_str());
-                                    depth_difference = depth_difference.and_then(|d| d.checked_sub(1));
+                                    depth_difference =
+                                        depth_difference.and_then(|d| d.checked_sub(1));
                                 }
                             } else {
                                 *current_joint = joints.next();
                             }
-                            *wrote_name = false; *wrote_offset = false; *wrote_channels = false;
+                            *wrote_name = false;
+                            *wrote_offset = false;
+                            *wrote_channels = false;
                         }
                         _ => {}
                     }
@@ -324,7 +340,9 @@ impl WriteOptions {
                 Some(frame) => {
                     let motion_values = frame
                         .iter()
-                        .map(|motion| format!("{:.*}", self.motion_values_significant_figures, motion))
+                        .map(|motion| {
+                            format!("{:.*}", self.motion_values_significant_figures, motion)
+                        })
                         .collect::<Vec<_>>()
                         .join(" ");
                     *chunk = BString::from(motion_values.as_str());
