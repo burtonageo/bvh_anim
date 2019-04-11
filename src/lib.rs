@@ -17,6 +17,7 @@
 
 #![allow(dead_code)]
 #![warn(unused_imports, missing_docs)]
+#![deny(bare_trait_objects)]
 
 //! A small library for loading and manipulating BioVision motion files.
 //!
@@ -601,6 +602,7 @@ impl<'a> Iterator for FramesMut<'a> {
         let range = frames_iter_logic(self.num_channels, self.num_frames, &mut self.curr_frame)?;
         unsafe {
             // Cast the anonymous lifetime to the 'a lifetime to avoid E0495.
+            // @TODO: is this safe?
             Some(mem::transmute::<&mut Frame, &'a mut Frame>(
                 Frame::from_mut_slice(&mut self.motion_values[range]),
             ))
