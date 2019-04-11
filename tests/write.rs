@@ -2,6 +2,7 @@ use bvh_anim::{
     bvh,
     write::{IndentStyle, WriteOptions},
 };
+use pretty_assertions::assert_eq;
 
 const BVH_STRING: &str = r#"""
 HIERARCHY

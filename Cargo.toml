@@ -19,5 +19,6 @@ num-traits = "0.2"
 smallvec = "0.6"
 
 [dev-dependencies]
+pretty_assertions = "0.6.1"
 winit = "0.18"
 wgpu = "0.2"

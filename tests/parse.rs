@@ -1,4 +1,5 @@
 use bvh_anim;
+use pretty_assertions::assert_eq;
 use std::{fs::File, io::BufReader};
 
 #[test]

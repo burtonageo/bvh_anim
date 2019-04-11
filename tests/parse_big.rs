@@ -2,6 +2,7 @@
 //! a large, real-world `bvh` file like `test_mocapbank.bvh`.
 
 use bvh_anim;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn string_parse_big() {
