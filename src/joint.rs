@@ -38,6 +38,15 @@ pub enum JointData {
 }
 
 impl JointData {
+    /// Returns `true` if the `Joint` is the root `Joint`, or `false` if it isn't.
+    #[inline]
+    pub fn is_root(&self) -> bool {
+        match *self {
+            JointData::Root { .. } => true,
+            _ => false,
+        }
+    }
+
     /// Returns the name of the `JointData`.
     #[inline]
     pub fn name(&self) -> &BStr {
