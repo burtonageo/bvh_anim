@@ -8,7 +8,6 @@ use crate::{
 #[macro_export]
 macro_rules! match_channels {
     ($builder:ident; ) => {
-
     };
     ($builder:ident;Xposition $($rest:ident)*) => {
         $builder.push_channel(bvh_anim::ChannelType::PositionX);
@@ -487,12 +486,12 @@ impl BvhLiteralBuilder {
         self.bvh.motion_values = motion_values;
     }
 
+    #[inline]
     pub fn check_valid_motion(&self) -> bool {
         self.bvh.motion_values.len() == self.bvh.num_channels * self.bvh.num_frames
     }
 
-    pub fn suppress_unused_mut_warning(&mut self) {}
-
+    #[inline]
     fn last_joint(&mut self) -> Option<&mut JointData> {
         self.bvh.joints.last_mut()
     }
