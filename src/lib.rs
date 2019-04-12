@@ -646,6 +646,30 @@ impl ChannelType {
     }
 }
 
+impl TryFrom<&'_ BStr> for ChannelType {
+    type Error = ParseChannelError;
+    #[inline]
+    fn try_from(string: &BStr) -> Result<Self, Self::Error> {
+        ChannelType::from_bstr(string)
+    }
+}
+
+impl TryFrom<&'_ [u8]> for ChannelType {
+    type Error = ParseChannelError;
+    #[inline]
+    fn try_from(string: &[u8]) -> Result<Self, Self::Error> {
+        ChannelType::from_bstr(BStr::new(string))
+    }
+}
+
+impl TryFrom<&'_ str> for ChannelType {
+    type Error = ParseChannelError;
+    #[inline]
+    fn try_from(string: &str) -> Result<Self, Self::Error> {
+        ChannelType::from_str(string)
+    }
+}
+
 impl FromStr for ChannelType {
     type Err = ParseChannelError;
     #[inline]
