@@ -72,5 +72,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 [Documentation]: https://docs.rs/bvh_anim/badge.svg
 [Latest Version]: https://img.shields.io/crates/v/bvh_anim.svg
-[docs.rs]: https://docs.rs/libc
+[docs.rs]: https://docs.rs/bvh_anim
+[crates.io]: https://crates.io/crates/bvh_anim
 [License]: https://img.shields.io/crates/l/bvh_anim.svg
