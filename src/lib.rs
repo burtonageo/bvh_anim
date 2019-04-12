@@ -296,9 +296,8 @@ pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
 
 /// A complete `bvh` file.
 ///
-/// You can also create a `Bvh` using the [`bvh!` macro][`bvh!`].
-///
-/// [`bvh!`]: macro.bvh.html
+/// See the [module documentation](index.html#using-this-library)
+/// for more information.
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct Bvh {
     /// The list of joints. If the root joint exists, it is always at
