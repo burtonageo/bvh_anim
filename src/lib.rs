@@ -122,8 +122,8 @@
 //!   should be an ascii-compatible encoding. These functions are also available as associated methods on
 //!   the `Bvh` type directly as [`Bvh::load`][`Bvh::load`] and [`Bvh::parse`][`Bvh::parse`]
 //! 
-//! * You can use the [`bvh!`][`bvh!`] macro to construct a [`Bvh`][`Bvh`] instance using the same
-//!   syntax as you would use for a standard bvh file.
+//! * You can use the [`bvh!`][`bvh!`] macro to construct a [`Bvh`][`Bvh`] instance in your source files
+//!   using the same syntax as you would use for a standard bvh file.
 //! 
 //! * You can use the [`builder`][`builder`] module to dynamically construct a bvh. This is useful
 //!   for converting data from other formats into a [`Bvh`][`Bvh`] struct.
