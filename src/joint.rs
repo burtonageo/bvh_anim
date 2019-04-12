@@ -178,10 +178,10 @@ impl JointData {
         }
     }
 
-    pub(crate) fn set_name(&mut self, new_name: JointName) {
+    pub(crate) fn set_name<S: Into<JointName>>(&mut self, new_name: S) {
         match *self {
-            JointData::Root { ref mut name, .. } => *name = new_name,
-            JointData::Child { ref mut name, .. } => *name = new_name,
+            JointData::Root { ref mut name, .. } => *name = new_name.into(),
+            JointData::Child { ref mut name, .. } => *name = new_name.into(),
         }
     }
 
