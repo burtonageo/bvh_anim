@@ -1,8 +1,4 @@
-use crate::{
-    fraction_seconds_to_duration,
-    joint::{JointData, JointName},
-    Bvh, Channel, ChannelType,
-};
+use crate::{fraction_seconds_to_duration, joint::JointData, Bvh, Channel, ChannelType};
 
 #[doc(hidden)]
 #[macro_export]
@@ -50,8 +46,7 @@ macro_rules! parse_joints_internal {
         )*
     )) => {
         $(
-            $builder.push_joint();
-            $builder.push_joint_name(stringify!($joint_nm));
+            $builder.push_joint(stringify!($joint_nm));
 
             $builder.current_depth += 1;
             bvh_anim::parse_joints_internal!($builder ( $( $children )* ));
@@ -358,8 +353,7 @@ macro_rules! bvh {
 
             let mut builder = bvh_anim::BvhLiteralBuilder::default();
 
-            builder.push_root();
-            builder.push_joint_name(stringify!($root_name));
+            builder.push_root(stringify!($root_name));
 
             builder.current_depth += 1;
             parse_joints_internal!(builder ($($joints)*));
@@ -399,12 +393,14 @@ pub struct BvhLiteralBuilder {
 
 #[doc(hidden)]
 impl BvhLiteralBuilder {
-    pub fn push_root(&mut self) {
-        self.bvh.joints.push(JointData::empty_root());
+    pub fn push_root(&mut self, name: &str) {
+        let mut root = JointData::empty_root();
+        root.set_name(name);
+        self.bvh.joints.push(root);
         self.current_index += 1;
     }
 
-    pub fn push_joint(&mut self) {
+    pub fn push_joint(&mut self, name: &str) {
         // @TODO: make this shared
         #[inline]
         fn get_parent_index(joints: &[JointData], for_depth: usize) -> usize {
@@ -420,26 +416,17 @@ impl BvhLiteralBuilder {
         let dpth = self.current_depth;
         let parent = get_parent_index(&self.bvh.joints[..], dpth);
 
-        self.bvh.joints.push(JointData::empty_child());
-        {
-            let mut private = self
-                .last_joint()
-                .and_then(|j| j.private_data_mut())
-                .unwrap();
-
+        let mut joint = JointData::empty_child();
+        joint.set_name(name);
+        if let Some(ref mut private) = joint.private_data_mut() {
             private.self_index = idx;
             private.depth = dpth;
             private.parent_index = parent;
-        }
+        };
+
+        self.bvh.joints.push(joint);
 
         self.current_index += 1;
-    }
-
-    pub fn push_joint_name(&mut self, joint_name: &str) {
-        let joint_name = JointName(joint_name.bytes().collect());
-        self.last_joint().map(|joint| {
-            joint.set_name(joint_name);
-        });
     }
 
     pub fn push_channel(&mut self, channel: ChannelType) {
