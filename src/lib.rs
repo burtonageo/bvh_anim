@@ -194,6 +194,7 @@
 #[macro_use]
 mod macros;
 
+pub mod builder;
 pub mod errors;
 pub mod write;
 
