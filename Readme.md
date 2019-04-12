@@ -4,7 +4,7 @@
 
 A rust library for loading `.bvh` files containing skeletal animation data.
 
-‼‼⚠⚠**NOTE**: This library is currently alpha quality software.‼‼⚠⚠
+⚠⚠**NOTE**: This library is currently alpha quality software.⚠⚠
 
 ## Basic usage
 
