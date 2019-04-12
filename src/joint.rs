@@ -160,24 +160,27 @@ impl JointData {
         }
     }
 
+    #[inline]
     pub(crate) fn empty_root() -> Self {
         JointData::Root {
             name: Default::default(),
-            offset: Vector3::from_slice(&[0.0, 0.0, 0.0]),
+            offset: [0.0, 0.0, 0.0].into(),
             channels: Default::default(),
         }
     }
 
+    #[inline]
     pub(crate) fn empty_child() -> Self {
         JointData::Child {
             name: Default::default(),
-            offset: Vector3::from_slice(&[0.0, 0.0, 0.0]),
+            offset: [0.0, 0.0, 0.0].into(),
             channels: Default::default(),
             end_site_offset: Default::default(),
             private: JointPrivateData::empty(),
         }
     }
 
+    #[inline]
     pub(crate) fn set_name<S: Into<JointName>>(&mut self, new_name: S) {
         match *self {
             JointData::Root { ref mut name, .. } => *name = new_name.into(),
@@ -202,6 +205,7 @@ impl JointData {
         }
     }
 
+    #[inline]
     pub(crate) fn set_channels(&mut self, new_channels: SmallVec<[Channel; 6]>) {
         match *self {
             JointData::Root {
