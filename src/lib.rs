@@ -445,7 +445,7 @@ impl Bvh {
     ///
     /// # Notes
     ///
-    /// Returns `Ok(())` if the `motion` value was successfully set, and `Err(())` if
+    /// Returns `Ok(())` if the `motion` value was successfully set, and `Err(_)` if
     /// the operation was out of bounds.
     #[inline]
     pub fn try_set_motion<'a>(
