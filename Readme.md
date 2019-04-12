@@ -1,14 +1,29 @@
 # bvh_anim
 
+[![Latest Version]][crates.io] [![Documentation]][docs.rs] ![License]
+
 A rust library for loading `.bvh` files containing skeletal animation data.
+
+**NOTE**: This library is currently alpha quality software.
 
 ## Basic usage
 
+To get started, add the following to your `Cargo.toml`:
+
+```toml
+[dependencies]
+bvh_anim = "0.1"
+```
+
+And then, you can import the library using the `use bvh_anim::*;` statement
+in your rust files. A small example is shown below:
+
 ```rust
+use bvh_anim;
 use std::fs::File;
 
-let bvh_file = File::open("./path/to/anim.bvh").unwrap();
-let bvh = bvh_anim::load(BufReader::new(bvh_file)).unwrap();
+let bvh_file = File::open("./path/to/anim.bvh")?;
+let bvh = bvh_anim::load(BufReader::new(bvh_file))?;
 
 for joint in bvh.joints() {
     println!("{:#?}", joint);
@@ -19,9 +34,22 @@ println!("Frame time: {:?}", bvh.frame_time());
 for frame in bvh.frames() {
     println!("{:?}", frame);
 }
+
+let mut out_file = File::create("./out.bvh");
+bvh.write_to(&mut out_file)?;
 ```
 
-For more information, see the documentation on [docs.rs](https://docs.rs/bvh_anim).
+For more information about the bvh file format and using this library,
+see the documentation on [docs.rs](https://docs.rs/bvh_anim).
+
+## Contributing
+
+This library welcomes open source contributions, including pull requests and bug
+reports (including feature requests).
+
+This library aims to be the primary `bvh` parser in the Rust ecosystem, and aims
+to correctly parse a wide variety of `bvh` files. If you have a file which does
+not parse correctly, please report a bug.
 
 ## License
 
@@ -41,3 +69,8 @@ LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE A
 NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+[Documentation]: https://docs.rs/bvh_anim/badge.svg
+[Latest Version]: https://img.shields.io/crates/v/bvh_anim.svg
+[docs.rs]: https://docs.rs/libc
+[License]: https://img.shields.io/crates/l/bvh_anim.svg

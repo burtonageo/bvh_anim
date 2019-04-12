@@ -210,6 +210,11 @@ macro_rules! parse_joints_internal {
 /// Create a new [`Bvh`][`Bvh`] object using a macro literal. Useful for
 /// testing.
 ///
+/// # Notes
+/// 
+/// If you have a very complex `Bvh` file with a large number of joints and frames, then
+/// this macro will scale badly to it, and compilation time will suffer.
+/// 
 /// # Example
 ///
 /// ```

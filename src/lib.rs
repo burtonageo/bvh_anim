@@ -18,12 +18,20 @@
 #![warn(unused_imports, missing_docs)]
 #![deny(bare_trait_objects)]
 
+//! # About this library
+//! 
 //! A small library for loading and manipulating BioVision motion files.
 //!
+//! ## The bvh file format
+//! 
 //! The `Bvh` file format is comprised of two main sections: the 'Heirarchy' section,
 //! which defines the joints of the skeleton, and the 'Motion' section, which defines
 //! the motion values for each channel.
 //!
+//! This project contains some samples in the [`data` directory][`data` directory].
+//!
+//! ### Heierarchy
+//! 
 //! The 'Heirarchy' section defines the skeleton as a tree of joints, where there is
 //! a single root joint, and a chain of child joints extending out from each joint,
 //! terminated by an 'End Site' section.
@@ -36,15 +44,19 @@
 //! * An offset, which is the vector distance from the parent joint.
 //!
 //! ```text
+//! HEIRARCHY
 //! ROOT <Root-name>
 //! {
 //!     OFFSET <Root-offset-x> <Root-offset-y> <Root-offset-z>
-//!     CHANNELS <Root-channels ...>
+//!     CHANNELS <Num-root-joint-channels> Xposition Yposition <other-root-channels ...>
 //!     JOINT <Joint-1-name>
 //!     {
 //!         OFFSET <Joint-1-offset-x> <Joint-1-offset-y> <Joint-1-offset-z>
-//!         CHANNELS <Joint-1-channels ...>
+//!         CHANNELS <Num-joint-1-channels> <Joint-1-channels ...>
+//!         JOINT <Joint-2-name>
 //!         {
+//!             OFFSET <Joint-2-offset-x> <Joint-2-offset-y> <Joint-2-offset-z>
+//!             CHANNELS <Num-joint-2-channels> <Joint-2-channels ...>
 //!             JOINT <Joint-with-end-site>
 //!             {
 //!                 OFFSET ...
@@ -56,14 +68,128 @@
 //!             }
 //!             ... More child joints
 //!         }
+//!         JOINT <Joint-3-name>
+//!         {
+//!             OFFSET <Joint-3-offset-x> <Joint-3-offset-y> <Joint-3-offset-z>
+//!             CHANNELS <Num-joint-3-channels> <Joint-3-channels ...>
+//!             ... More child joints
+//!         }
 //!         ... More child joints
 //!     }
+//!     ... More child joints
 //! }
 //! ```
 //!
-//! More information on this file format can be found [here][bvh_html].
+//! Note that the bvh data is defined in terms of a right-handed coordinate system, where
+//! the positive y-axis is the up vector.
+//! 
+//! ### Motion
+//! 
+//! The `MOTION` section of the bvh file records the number of frames, the frame time, and
+//! defines the full range of motions for each channel, frame by frame.
+//! 
+//! ```text
+//! MOTION
+//! Frames: <num-frames>
+//! Frame Time: <frame-time>
+//! <frame-0-channel-0-value> <frame-0-channel-1-value> <frame-0-channel-2-value> ...
+//! <frame-1-channel-0-value> <frame-1-channel-1-value> <frame-1-channel-2-value> ...
+//! <frame-2-channel-0-value> <frame-2-channel-1-value> <frame-2-channel-2-value> ...
+//! ⋮
+//! ```
+//! 
+//! The frame time is recorded in seconds, and tells the animation system how long each frame
+//! of the animation should last for. This value is usually around 0.033333333, which is close
+//! to 30 frames per second.
+//! 
+//! The list of motion values is a matrix, where each row represents a frame. Each column of
+//! the row represents a transformation around the channel axis - for example a motion value
+//! of 130.0 for an `Xposition` channel would correspond to a rotation of 130.0 degrees around
+//! the x-axis.
+//! 
+//! Note that rotations are conventionally in degrees, although it will be up to your application
+//! how to interpret each motion's value.
+//! 
+//! ## Using this library.
 //!
+//! ### Creating a [`Bvh`][`Bvh`] struct:
+//! 
+//! There are a few ways to create a [`Bvh`][`Bvh`] struct:
+//! 
+//! * You can use the [`load`][`load`] function, which will parse a `BufRead` which may contain a bvh
+//!   file. The [`parse`][`parse`] function is a convenient wrapper function to parse an in-memory slice
+//!   of bytes as a `bvh` file. Note that the file does not need to be strictly utf-8, although it
+//!   should be an ascii-compatible encoding. These functions are also available as associated methods on
+//!   the `Bvh` type directly as [`Bvh::load`][`Bvh::load`] and [`Bvh::parse`][`Bvh::parse`]
+//! 
+//! * You can use the [`bvh!`][`bvh!`] macro to construct a [`Bvh`][`Bvh`] instance using the same
+//!   syntax as you would use for a standard bvh file.
+//! 
+//! * You can use the [`builder`][`builder`] module to dynamically construct a bvh. This is useful
+//!   for converting data from other formats into a [`Bvh`][`Bvh`] struct.
+//!
+//! * You can create an empty [`Bvh`][`Bvh`] using the [`Bvh::new`][`Bvh::new`] or [`Default::default`]
+//!   [`Default::default`] methods.
+//!
+//! ### Other operations:
+//! 
+//! Once you have a valid [`Bvh`][`Bvh`] struct, there are a number of ways you can inspect and
+//! manipulate it:
+//! 
+//! * The [`Bvh::joints`][`Bvh::joints`] method can be used to iterate through each [`Joint`][`Joint`]
+//!   of the [`Bvh`][`Bvh`]. Each [`Joint`][`Joint`] can be inspected through its [`JointData`]
+//!   [`JointData`], which can be obtained with the [`Joint::data`][`Joint::data`] method.
+//!
+//! * The [`Bvh::frames`][`Bvh::frames`] method returns a [`Frames`][`Frames`] iterator over each
+//!   frame of the animation. A [`Frame`][`Frame`] can only be indexed by a [`Channel`][`Channel`]
+//!   belonging to an associated [`Joint`][`Joint`] of the [`Bvh`][`Bvh`], although you can convert
+//!   it into an [`&[`][`slice`][`f32`][`f32`][`]`][`slice`] using the [`Frame::as_slice`][`Frame::as_slice`] method.
+//!
+//! * You can serialise the [`Bvh`][`Bvh`] into a [`Write`][`Write`] type using the [`Bvh::write_to`]
+//!   [`Bvh::write_to`] method. There is also the [`Bvh::to_bstring`][`Bvh::to_bstring`] method, which
+//!   converts the [`Bvh`][`Bvh`] into a [`BString`][`BString`]. Various aspects of the formatting
+//!   can be customised using the [`WriteOptions`][`WriteOptions`] type, such as the line termination
+//!   style, indentation method, and floating point accuracy.
+//!
+//! ## Examples
+//!
+//! This library comes with some example applications, which can be viewed on [Github][Github].
+//! 
+//! ## Other resources
+//! 
+//! * More information on this file format can be found [here][bvh_html].
+//! * A large library of bvh files is freely available from [CMU's motion capture database]
+//!   [CMU's motion capture database].
+//!
+//! [`data` directory]: https://github.com/burtonageo/bvh_anim/tree/master/data
+//! [`bvh`]: struct.Bvh.html
+//! [`load`]: fn.load.html
+//! [`parse`]: fn.parse.html
+//! [`Bvh::load`]: struct.Bvh.html#method.load
+//! [`Bvh::parse`]:  struct.Bvh.html#method.parse
+//! [`bvh!`]: macro.bvh.html
+//! [`builder`]: builder/index.html
+//! [`Bvh::new`]: struct.Bvh.html#method.new
+//! [`Default::default`]: https://doc.rust-lang.org/stable/std/default/trait.Default.html#tymethod.default
+//! [`Bvh::joints`]: struct.Bvh.html#method.joints
+//! [`Joint`]: struct.Joint.html
+//! [`JointData`]: enum.JointData.html
+//! [`Joint::data`]: struct.Joint.html#method.data
+//! [`Bvh::frames`]: struct.Bvh.html#method.frames
+//! [`Frames`]: struct.Frames.html
+//! [`Frame`]: struct.Frame.html
+//! [`slice`]: https://doc.rust-lang.org/std/primitive.slice.html
+//! [`f32`]: https://doc.rust-lang.org/stable/std/primitive.f32.html
+//! [`Channel`]: struct.Channel.html
+//! [`Frame::as_slice`]: struct.Frame.html#method.as_slice
+//! [`Write`]: https://doc.rust-lang.org/stable/std/io/trait.Write.html
+//! [`Bvh::write_to`]: struct.Bvh.html#method.write_to
+//! [`Bvh::to_bstring`]: struct.Bvh.html#method.to_bstring
+//! [`BString`]: https://docs.rs/bstr/0.1.2/bstr/struct.BString.html
+//! [`WriteOptions`]: write/struct.WriteOptions.html
+//! [Github]: https://github.com/burtonageo/bvh_anim/tree/master/examples
 //! [bvh_html]: https://research.cs.wisc.edu/graphics/Courses/cs-838-1999/Jeff/BVH.html
+//! [CMU's motion capture database]: https://sites.google.com/a/cgspeed.com/cgspeed/motion-capture/daz-friendly-release
 
 #[macro_use]
 mod macros;
@@ -213,7 +339,7 @@ impl Bvh {
     }
 
     /// Writes the `Bvh` using the `bvh` file format to the `writer`, with
-    /// default settings.
+    /// the default formatting options.
     ///
     /// # Notes
     ///
@@ -223,6 +349,19 @@ impl Bvh {
     #[inline]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         write::WriteOptions::default().write(self, writer)
+    }
+
+    /// Writes the `Bvh` using the `bvh` file format into a `BString` with
+    /// the default formatting options.
+    ///
+    /// # Notes
+    ///
+    /// To customise the formatting, see the [`WriteOptions`][`WriteOptions`] type.
+    ///
+    /// [`WriteOptions`]: write/struct.WriteOptions.html
+    #[inline]
+    pub fn to_bstring(&self) -> BString {
+        write::WriteOptions::default().write_to_string(self)
     }
 
     /// Returns the root joint if it exists, or `None` if the skeleton is empty.
@@ -355,8 +494,7 @@ impl Bvh {
 impl fmt::Display for Bvh {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = write::WriteOptions::default().write_to_string(self);
-        fmt::Display::fmt(&s, f)
+        fmt::Display::fmt(&self.to_bstring(), f)
     }
 }
 
