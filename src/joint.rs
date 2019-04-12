@@ -262,7 +262,7 @@ macro_rules! impl_from {
             }
         }
         impl_from!($($rest)*);
-}
+    }
 }
 
 impl_from! {
@@ -273,18 +273,18 @@ impl_from! {
 macro_rules! impl_as_ref {
     ($( $t:ty { ref => $method:path, mut => $mut_method:path } )*) => {
         $(
-        impl AsRef<$t> for JointName {
-            #[inline]
-            fn as_ref(&self) -> &$t {
-                $method(&self.0[..])
+            impl AsRef<$t> for JointName {
+                #[inline]
+                fn as_ref(&self) -> &$t {
+                    $method(&self.0[..])
+                }
             }
-        }
-        impl AsMut<$t> for JointName {
-            #[inline]
-            fn as_mut(&mut self) -> &mut $t {
-                $mut_method(&mut self.0[..])
+            impl AsMut<$t> for JointName {
+                #[inline]
+                fn as_mut(&mut self) -> &mut $t {
+                    $mut_method(&mut self.0[..])
+                }
             }
-        }
         )*
     }
 }

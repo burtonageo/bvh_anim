@@ -108,7 +108,7 @@ impl WriteOptions {
             offset_significant_figures,
             ..self
         }
-    } 
+    }
 
     /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
     #[inline]
@@ -228,7 +228,7 @@ impl WriteOptions {
                             // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
                             // allocation
                             chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
-                            
+
                             let channels = joint_data.channels();
                             let channels_str = channels
                                 .iter()
@@ -272,12 +272,12 @@ impl WriteOptions {
 
                                 let (curr_depth, mut depth_difference) =
                                     if let Some(ref curr_j) = *current_joint {
-                                    let curr_depth = curr_j.data().depth();
-                                    (curr_depth, Some(prev_joint.data().depth() - curr_depth))
-                                } else {
-                                    (0, Some(prev_joint.data().depth()))
-                                };
-   
+                                        let curr_depth = curr_j.data().depth();
+                                        (curr_depth, Some(prev_joint.data().depth() - curr_depth))
+                                    } else {
+                                        (0, Some(prev_joint.data().depth()))
+                                    };
+
                                 while let Some(d) = depth_difference {
                                     chunk.push(
                                         self.indent
