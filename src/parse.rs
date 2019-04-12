@@ -77,156 +77,154 @@ impl Bvh {
                 None => continue,
             };
 
-            if first_token == HEIRARCHY_KEYWORD && curr_mode == ParseMode::NotStarted {
-                curr_mode = ParseMode::InHeirarchy;
-                next_expected_line = NextExpectedLine::RootName;
-                continue;
-            }
-
-            if first_token == ROOT_KEYWORD {
-                if curr_mode != ParseMode::InHeirarchy
-                    || next_expected_line != NextExpectedLine::RootName
-                {
-                    panic!("Unexpected root: {:?}", curr_mode);
+            match first_token.as_bytes() {
+                HEIRARCHY_KEYWORD => {
+                    if curr_mode != ParseMode::NotStarted {
+                        panic!("Unexpected hierarchy");
+                    }
+                    curr_mode = ParseMode::InHeirarchy;
+                    next_expected_line = NextExpectedLine::RootName;
                 }
-
-                if let Some(tok) = tokens.next() {
-                    curr_joint.set_name(JointName::from(tok));
-                    continue;
-                }
-            }
-
-            if first_token == OPEN_BRACE {
-                curr_depth += 1;
-                continue;
-            }
-
-            if first_token == CLOSE_BRACE {
-                curr_depth -= 1;
-                if curr_depth == 0 {
-                    // We have closed the brace of the root joint.
-                    curr_mode = ParseMode::Finished;
-                }
-
-                if in_end_site {
-                    if let JointData::Child {
-                        ref mut private, ..
-                    } = curr_joint
+                ROOT_KEYWORD => {
+                    if curr_mode != ParseMode::InHeirarchy
+                        || next_expected_line != NextExpectedLine::RootName
                     {
-                        private.self_index = curr_index;
-                        private.parent_index = get_parent_index(&joints, curr_depth);
-                        private.depth = curr_depth - 1;
+                        panic!("Unexpected root: {:?}", curr_mode);
                     }
 
-                    let new_joint = mem::replace(&mut curr_joint, JointData::empty_child());
-                    joints.push(new_joint);
-                    curr_index += 1;
-                    in_end_site = false;
-                    pushed_end_site_joint = true;
+                    if let Some(tok) = tokens.next() {
+                        curr_joint.set_name(JointName::from(tok));
+                    }
                 }
-            }
-
-            if first_token == ENDSITE_KEYWORDS[0]
-                && tokens.next().map(BStr::as_bytes) == Some(ENDSITE_KEYWORDS[1])
-            {
-                in_end_site = true;
-            }
-
-            if first_token == JOINT_KEYWORD {
-                if curr_mode != ParseMode::InHeirarchy {
-                    panic!("Unexpected Joint");
+                OPEN_BRACE => {
+                    curr_depth += 1;
                 }
-
-                if !pushed_end_site_joint {
-                    if let JointData::Child {
-                        ref mut private, ..
-                    } = curr_joint
-                    {
-                        private.self_index = curr_index;
-                        private.parent_index = get_parent_index(&joints, curr_depth);
-                        private.depth = curr_depth - 1;
+                CLOSE_BRACE => {
+                    curr_depth -= 1;
+                    if curr_depth == 0 {
+                        // We have closed the brace of the root joint.
+                        curr_mode = ParseMode::Finished;
                     }
 
-                    let new_joint = mem::replace(&mut curr_joint, JointData::empty_child());
-                    joints.push(new_joint);
+                    if in_end_site {
+                        if let JointData::Child {
+                            ref mut private, ..
+                        } = curr_joint
+                        {
+                            private.self_index = curr_index;
+                            private.parent_index = get_parent_index(&joints, curr_depth);
+                            private.depth = curr_depth - 1;
+                        }
 
-                    curr_index += 1;
-                } else {
-                    pushed_end_site_joint = false;
+                        let new_joint = mem::replace(&mut curr_joint, JointData::empty_child());
+                        joints.push(new_joint);
+                        curr_index += 1;
+                        in_end_site = false;
+                        pushed_end_site_joint = true;
+                    }
                 }
-
-                if let Some(name) = tokens.next() {
-                    curr_joint.set_name(JointName::from(name));
+                kw if kw == ENDSITE_KEYWORDS[0] => {
+                    if tokens.next().map(BStr::as_bytes) == Some(ENDSITE_KEYWORDS[1]) {
+                        in_end_site = true;
+                    } else {
+                        panic!("Unexpected end keyword");
+                    }
                 }
-            }
+                JOINT_KEYWORD => {
+                    if curr_mode != ParseMode::InHeirarchy {
+                        panic!("Unexpected Joint");
+                    }
 
-            if first_token == OFFSET_KEYWORD {
-                if curr_mode != ParseMode::InHeirarchy {
-                    return Err(LoadJointsError::UnexpectedOffsetSection { line: line_num });
+                    if !pushed_end_site_joint {
+                        if let JointData::Child {
+                            ref mut private, ..
+                        } = curr_joint
+                        {
+                            private.self_index = curr_index;
+                            private.parent_index = get_parent_index(&joints, curr_depth);
+                            private.depth = curr_depth - 1;
+                        }
+
+                        let new_joint = mem::replace(&mut curr_joint, JointData::empty_child());
+                        joints.push(new_joint);
+
+                        curr_index += 1;
+                    } else {
+                        pushed_end_site_joint = false;
+                    }
+
+                    if let Some(name) = tokens.next() {
+                        curr_joint.set_name(JointName::from(name));
+                    }
                 }
+                OFFSET_KEYWORD => {
+                    if curr_mode != ParseMode::InHeirarchy {
+                        return Err(LoadJointsError::UnexpectedOffsetSection { line: line_num });
+                    }
 
-                let mut offset = Vector3::from([0.0, 0.0, 0.0]);
+                    let mut offset = Vector3::from([0.0, 0.0, 0.0]);
 
-                macro_rules! parse_axis {
-                    ($axis_field:ident, $axis_enum:ident) => {
-                        if let Some(tok) = tokens.next() {
-                            offset.$axis_field =
-                                try_parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
-                                    parse_float_error: e,
+                    macro_rules! parse_axis {
+                        ($axis_field:ident, $axis_enum:ident) => {
+                            if let Some(tok) = tokens.next() {
+                                offset.$axis_field =
+                                    try_parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
+                                        parse_float_error: e,
+                                        axis: Axis::$axis_enum,
+                                        line: line_num,
+                                    })?;
+                            } else {
+                                return Err(LoadJointsError::MissingOffsetAxis {
                                     axis: Axis::$axis_enum,
                                     line: line_num,
-                                })?;
-                        } else {
-                            return Err(LoadJointsError::MissingOffsetAxis {
-                                axis: Axis::$axis_enum,
+                                });
+                            }
+                        };
+                    }
+
+                    parse_axis!(x, X);
+                    parse_axis!(y, Y);
+                    parse_axis!(z, Z);
+
+                    curr_joint.set_offset(offset, in_end_site);
+                }
+                CHANNELS_KEYWORD => {
+                    if curr_mode != ParseMode::InHeirarchy {
+                        return Err(LoadJointsError::UnexpectedChannelsSection { line: line_num });
+                    }
+
+                    let num_channels: usize = tokens
+                        .next()
+                        .ok_or(LoadJointsError::ParseNumChannelsError {
+                            error: None,
+                            line: line_num,
+                        })
+                        .and_then(|tok| match try_parse(tok) {
+                            Ok(c) => Ok(c),
+                            Err(e) => Err(LoadJointsError::ParseNumChannelsError {
+                                error: Some(e),
                                 line: line_num,
-                            });
-                        }
-                    };
+                            }),
+                        })?;
+
+                    let mut channels: SmallVec<[Channel; 6]> = Default::default();
+                    channels.reserve(num_channels);
+
+                    while let Some(tok) = tokens.next() {
+                        let channel_ty = ChannelType::from_bstr(tok).map_err(|e| {
+                            LoadJointsError::ParseChannelError {
+                                error: e,
+                                line: line_num,
+                            }
+                        })?;
+                        let channel = Channel::new(channel_ty, curr_channel);
+                        curr_channel += 1;
+                        channels.push(channel);
+                    }
+
+                    curr_joint.set_channels(channels);
                 }
-
-                parse_axis!(x, X);
-                parse_axis!(y, Y);
-                parse_axis!(z, Z);
-
-                curr_joint.set_offset(offset, in_end_site);
-            }
-
-            if first_token == CHANNELS_KEYWORD {
-                if curr_mode != ParseMode::InHeirarchy {
-                    return Err(LoadJointsError::UnexpectedChannelsSection { line: line_num });
-                }
-
-                let num_channels: usize = tokens
-                    .next()
-                    .ok_or(LoadJointsError::ParseNumChannelsError {
-                        error: None,
-                        line: line_num,
-                    })
-                    .and_then(|tok| match try_parse(tok) {
-                        Ok(c) => Ok(c),
-                        Err(e) => Err(LoadJointsError::ParseNumChannelsError {
-                            error: Some(e),
-                            line: line_num,
-                        }),
-                    })?;
-
-                let mut channels: SmallVec<[Channel; 6]> = Default::default();
-                channels.reserve(num_channels);
-
-                while let Some(tok) = tokens.next() {
-                    let channel_ty = ChannelType::from_bstr(tok).map_err(|e| {
-                        LoadJointsError::ParseChannelError {
-                            error: e,
-                            line: line_num,
-                        }
-                    })?;
-                    let channel = Channel::new(channel_ty, curr_channel);
-                    curr_channel += 1;
-                    channels.push(channel);
-                }
-
-                curr_joint.set_channels(channels);
+                _ => {}
             }
 
             if curr_mode == ParseMode::Finished {
