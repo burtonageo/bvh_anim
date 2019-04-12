@@ -2,7 +2,6 @@ use bstr::{BStr, B};
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
     fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines, JointData,
-    JointName,
 };
 use lexical::try_parse;
 use mint::Vector3;
@@ -10,6 +9,7 @@ use smallvec::SmallVec;
 use std::mem;
 
 impl Bvh {
+    // @TODO: Remove panics
     /// Logic for parsing the data from a `BufRead`.
     pub(crate) fn read_joints(
         &mut self,
@@ -92,8 +92,10 @@ impl Bvh {
                         panic!("Unexpected root: {:?}", curr_mode);
                     }
 
-                    if let Some(tok) = tokens.next() {
-                        curr_joint.set_name(JointName::from(tok));
+                    if let Some(name) = tokens.next() {
+                        curr_joint.set_name(name);
+                    } else {
+                        panic!("Missing root name!");
                     }
                 }
                 OPEN_BRACE => {
@@ -154,7 +156,9 @@ impl Bvh {
                     }
 
                     if let Some(name) = tokens.next() {
-                        curr_joint.set_name(JointName::from(name));
+                        curr_joint.set_name(name);
+                    } else {
+                        panic!("Missing joint name!");
                     }
                 }
                 OFFSET_KEYWORD => {
@@ -167,12 +171,13 @@ impl Bvh {
                     macro_rules! parse_axis {
                         ($axis_field:ident, $axis_enum:ident) => {
                             if let Some(tok) = tokens.next() {
-                                offset.$axis_field =
-                                    try_parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
+                                offset.$axis_field = try_parse(tok).map_err(|e| {
+                                    LoadJointsError::ParseOffsetError {
                                         parse_float_error: e,
                                         axis: Axis::$axis_enum,
                                         line: line_num,
-                                    })?;
+                                    }
+                                })?;
                             } else {
                                 return Err(LoadJointsError::MissingOffsetAxis {
                                     axis: Axis::$axis_enum,
