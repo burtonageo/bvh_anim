@@ -586,18 +586,14 @@ mod tests {
 
         assert_eq!(*bvh.frame_time(), Duration::from_nanos(33333333));
 
-        let mut num_frames = 0;
-        for frame in bvh.frames() {
-            let mut num_channels = 0;
+        let frames = bvh.frames();
+        assert_eq!(frames.len(), 1);
+        for frame in frames {
+            assert_eq!(frame.len(), 9);
             for channel in frame.as_slice().iter() {
                 assert_eq!(*channel, 0.0);
-                num_channels += 1;
             }
-
-            assert_eq!(num_channels, 9);
-            num_frames += 1;
         }
-        assert_eq!(num_frames, 1);
     }
 
     #[test]
