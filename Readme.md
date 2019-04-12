@@ -49,7 +49,8 @@ reports (including feature requests).
 
 This library aims to be the primary `bvh` parser in the Rust ecosystem, and aims
 to correctly parse a wide variety of `bvh` files. If you have a file which does
-not parse correctly, please report a bug.
+not parse correctly, please report a bug. Parsing should always return an error on
+failure and never panic.
 
 ## License
 
