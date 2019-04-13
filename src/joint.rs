@@ -39,6 +39,29 @@ pub enum JointData {
 
 impl JointData {
     /// Returns `true` if the `Joint` is the root `Joint`, or `false` if it isn't.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         End Site {
+    ///             OFFSET 0.0 0.0 30.0
+    ///         }
+    ///     }
+    ///     MOTION
+    ///     Frames: 0
+    ///     Frame Time: 0.0333333
+    /// };
+    /// 
+    /// let root = bvh.root_joint().unwrap();
+    /// assert!(root.data().is_root());
+    /// ```
     #[inline]
     pub fn is_root(&self) -> bool {
         match *self {
@@ -48,12 +71,71 @@ impl JointData {
     }
 
     /// Returns `true` if the `Joint` is a child `Joint`, or `false` if it isn't.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    /// #   HIERARCHY
+    /// #   ROOT Base
+    /// #   {
+    /// #       OFFSET 0.0 0.0 0.0
+    /// #       CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    /// #       JOINT End
+    /// #       {
+    /// #           OFFSET 0.0 0.0 15.0
+    /// #           CHANNELS 3 Zrotation Xrotation Yrotation
+    /// #           End Site
+    /// #           {
+    /// #               OFFSET 0.0 0.0 30.0
+    /// #           }
+    /// #       }
+    /// #   }
+    /// #   MOTION
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    ///     // bvh hierarchy unspecified ..
+    /// };
+    /// 
+    /// for joint in bvh.joints().skip(1) {
+    ///     assert!(joint.data().is_child());
+    /// }
+    /// ```
     #[inline]
     pub fn is_child(&self) -> bool {
-        !self.is_root()
+        match *self {
+            JointData::Child { .. } => true,
+            _ => false,
+        }
     }
 
     /// Returns the name of the `JointData`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         // ...
+    /// #       End Site {
+    /// #           OFFSET 0.0 0.0 30.0
+    /// #       }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    /// 
+    /// let root = bvh.root_joint().unwrap();
+    /// assert_eq!(root.data().name(), "Hips");
+    /// ```
     #[inline]
     pub fn name(&self) -> &BStr {
         match *self {
@@ -62,6 +144,30 @@ impl JointData {
     }
 
     /// Returns the offset of the `JointData` if it exists, or `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 1.2 3.4 5.6
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         // ...
+    /// #       End Site {
+    /// #           OFFSET 0.0 0.0 30.0
+    /// #       }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    /// 
+    /// let root = bvh.root_joint().unwrap();
+    /// assert_eq!(root.data().offset(), &[1.2, 3.4, 5.6].into());
     #[inline]
     pub fn offset(&self) -> &Vector3<f32> {
         match *self {
