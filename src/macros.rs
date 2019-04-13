@@ -36,6 +36,15 @@ macro_rules! match_channels {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! parse_offset {
+    ($builder:ident ($ofst_x:literal $ofst_y:literal $ofst_z:literal)) => {
+        let offset = [f32::from($ofst_x), f32::from($ofst_y), f32::from($ofst_z)];
+        $builder.push_joint_offset(offset.into(), false);
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! parse_joints_internal {
     ($builder:ident (
         $(
@@ -56,57 +65,55 @@ macro_rules! parse_joints_internal {
 
     ($builder:ident (
         OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
-        $($rest:tt)*
-    )) => {
-        let offset = [
-            f32::from($ofst_x),
-            f32::from($ofst_y),
-            f32::from($ofst_z),
-        ];
-        $builder.push_joint_offset(offset.into(), false);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
-    };
-
-    ($builder:ident (
         CHANNELS 0
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 1 $ch0:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ; $ch0);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 2 $ch0:ident $ch1:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ; $ch0 $ch1);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 3 $ch0:ident $ch1:ident $ch2:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ; $ch0 $ch1 $ch2);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 4 $ch0:ident $ch1:ident $ch2:ident $ch3:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ; $ch0 $ch1 $ch2 $ch3);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 5
             $ch0:ident
             $ch1:ident
@@ -115,11 +122,13 @@ macro_rules! parse_joints_internal {
             $ch4:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ; $ch0 $ch1 $ch2 $ch3 $ch4);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 6
             $ch0:ident
             $ch1:ident
@@ -129,6 +138,7 @@ macro_rules! parse_joints_internal {
             $ch5:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
@@ -145,12 +155,14 @@ macro_rules! parse_joints_internal {
             $ch6:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5 $ch6);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 8
             $ch0:ident
             $ch1:ident
@@ -162,12 +174,14 @@ macro_rules! parse_joints_internal {
             $ch7:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5 $ch6 $ch7);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS 9
             $ch0:ident
             $ch1:ident
@@ -180,12 +194,14 @@ macro_rules! parse_joints_internal {
             $ch8:ident
         $($rest:tt)*
     )) => {
+        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z))
         bvh_anim::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5 $ch6 $ch7 $ch8);
         bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
+        OFFSET $ofst_x:literal $ofst_y:literal $ofst_z:literal
         CHANNELS $unsupported:literal $($rest:tt)*
     )) => {
         compile_error!("No more than 9 channels supported in CHANNELS statement");
@@ -211,10 +227,10 @@ macro_rules! parse_joints_internal {
 /// testing.
 ///
 /// # Notes
-/// 
+///
 /// If you have a very complex `Bvh` file with a large number of joints and frames, then
 /// this macro will scale badly to it, and compilation time will suffer.
-/// 
+///
 /// # Example
 ///
 /// ```
