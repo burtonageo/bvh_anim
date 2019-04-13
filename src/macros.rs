@@ -348,8 +348,7 @@ macro_rules! bvh {
             use bvh_anim::parse_joints_internal;
 
             let mut builder = bvh_anim::BvhLiteralBuilder::default();
-            builder.push_root();
-            builder.push_joint_name(stringify!($root_name));
+            builder.push_root(stringify!($root_name));
 
             builder.current_depth += 1;
             parse_joints_internal!(builder ($($joints)*));
