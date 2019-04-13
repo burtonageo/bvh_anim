@@ -208,6 +208,7 @@ use bstr::{
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
 use std::{
+    convert::TryFrom,
     fmt,
     io::{self, Cursor, Write},
     iter::Enumerate,
