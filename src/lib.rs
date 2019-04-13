@@ -352,7 +352,6 @@ impl Bvh {
     /// # use bvh_anim::bvh;
     /// # use std::io;
     /// # use std::fs::File;
-    ///
     /// let bvh = bvh! {
     ///     // fields unspecified
     /// };
