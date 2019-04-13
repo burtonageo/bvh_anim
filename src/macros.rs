@@ -285,11 +285,17 @@ macro_rules! parse_joints_internal {
 ///
 /// ```
 /// # use bvh_anim::bvh;
-/// let empty = bvh! {};
+/// let empty = bvh!{};
 ///
-/// let another_empty = bvh! {
+/// let empty = bvh! {
 ///     HIERARCHY
 ///     MOTION
+/// };
+/// 
+/// let empty = bvh! {
+///     HIERARCHY
+///     MOTION
+///     Frames: 0
 /// };
 /// ```
 ///
