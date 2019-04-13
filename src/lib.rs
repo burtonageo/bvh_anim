@@ -592,10 +592,26 @@ pub enum ChannelType {
 }
 
 impl ChannelType {
-    /// Attempt to parse a bvh channel string into a `ChannelType`.
+    /// Attempt to parse a bvh channel byte string into a `ChannelType`.
     /// Returns `Err` if the string cannot be parsed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bvh_anim::ChannelType;
+    /// assert_eq!(
+    ///     ChannelType::from_bstr("Xrotation").unwrap(),
+    ///     ChannelType::RotationX);
+    ///
+    /// let err = ChannelType::from_bstr("Hello").unwrap_err();
+    /// assert_eq!(err.into_inner(), "Hello");
+    /// ```
     #[inline]
-    pub fn from_bstr(s: &BStr) -> Result<Self, ParseChannelError> {
+    pub fn from_bstr<B>(s: &B) -> Result<Self, ParseChannelError>
+    where
+        B: AsRef<[u8]> + ?Sized
+    {
+        let s = BStr::new(s);
         match s.as_bytes() {
             b"Xrotation" => Ok(ChannelType::RotationX),
             b"Yrotation" => Ok(ChannelType::RotationY),
@@ -660,7 +676,10 @@ impl ChannelType {
         }
     }
 
-    /// Returns the `Vector3` of the channel axis.
+    /// Returns the `Vector3` of the channel axis. See the [`Axis::vector`]
+    /// [`Axis::vector`] method for more info.
+    ///
+    /// [`Axis::vector`]: enum.Axis.html#method.vector
     #[inline]
     // @TODO: remove `Clone` bound when
     // https://github.com/kvark/mint/commit/8c6c501e442152e776a17322dff10e723bf0eeda
@@ -702,7 +721,7 @@ impl TryFrom<&'_ [u8]> for ChannelType {
     type Error = ParseChannelError;
     #[inline]
     fn try_from(string: &[u8]) -> Result<Self, Self::Error> {
-        ChannelType::from_bstr(BStr::new(string))
+        ChannelType::from_bstr(string)
     }
 }
 
@@ -718,7 +737,7 @@ impl FromStr for ChannelType {
     type Err = ParseChannelError;
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ChannelType::from_bstr(From::from(s))
+        ChannelType::from_bstr(s)
     }
 }
 
@@ -747,7 +766,6 @@ impl Axis {
     ///
     /// ```
     /// # use bvh_anim::Axis;
-    ///
     /// assert_eq!(Axis::X.vector(), [1.0, 0.0, 0.0].into());
     /// assert_eq!(Axis::Y.vector(), [0.0, 1.0, 0.0].into());
     /// assert_eq!(Axis::Z.vector(), [0.0, 0.0, 1.0].into());
