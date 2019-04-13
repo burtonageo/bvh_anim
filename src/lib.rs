@@ -326,7 +326,7 @@ impl Bvh {
         Bvh::load(Cursor::new(bytes))
     }
 
-    /// Loads the `Bvh` from the `reader`.F
+    /// Loads the `Bvh` from the `reader`.
     pub fn load<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
         let reader: &mut dyn BufReadExt = reader.by_ref();
         let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
@@ -346,6 +346,22 @@ impl Bvh {
     ///
     /// To customise the formatting, see the [`WriteOptions`][`WriteOptions`] type.
     ///
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// # use std::io;
+    /// # use std::fs::File;
+    ///
+    /// let bvh = bvh! {
+    ///     // fields unspecified
+    /// };
+    /// 
+    /// let mut out_file = File::create("./out_file.bvh")?;
+    /// bvh.write_to(&mut out_file)?;
+    /// # Result::<(), io::Error>::Ok(())
+    /// ```
+    /// 
     /// [`WriteOptions`]: write/struct.WriteOptions.html
     #[inline]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -366,6 +382,34 @@ impl Bvh {
     }
 
     /// Returns the root joint if it exists, or `None` if the skeleton is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bvh_anim::{Bvh, bvh};
+    /// let bvh = Bvh::new();
+    /// assert!(bvh.root_joint().is_none());
+    ///
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    /// #       OFFSET 0.0 0.0 0.0
+    /// #       CHANNELS 0
+    /// #       End Site
+    /// #       {
+    /// #           OFFSET 0.0 0.0 0.0
+    /// #       }
+    ///         // Joints...
+    ///     }
+    ///     MOTION
+    /// #   Frames: 0
+    /// #   Frame Time: 0.033333333
+    ///     // Frames...
+    /// };
+    ///
+    /// assert!(bvh.root_joint().is_some());
+    /// ```
     #[inline]
     pub fn root_joint(&self) -> Option<Joint<'_>> {
         if self.joints.is_empty() {
