@@ -4,7 +4,6 @@ use bvh_anim::{
 };
 use pretty_assertions::assert_eq;
 
-// #[ignore] // failing at the moment
 #[test]
 fn test_write() {
     const BVH_STRING: &str = include_str!("../data/test_simple.bvh");
@@ -46,7 +45,7 @@ fn test_write() {
 #[test]
 fn test_load_write_is_identical() {
     const BVH_STRING: &str = include_str!("../data/test_simple.bvh");
-    let bvh = bvh_anim::parse(BVH_STRING).unwrap();
+    let bvh = bvh_anim::from_str(BVH_STRING).unwrap();
     let bvh_string = WriteOptions::new()
         .with_indent(IndentStyle::with_spaces(4))
         .with_frame_time_significant_figures(9)

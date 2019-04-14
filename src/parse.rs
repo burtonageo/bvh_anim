@@ -6,7 +6,7 @@ use crate::{
 use lexical::try_parse;
 use mint::Vector3;
 use smallvec::SmallVec;
-use std::mem;
+use std::{convert::TryFrom, mem};
 
 impl Bvh {
     // @TODO: Remove panics
@@ -216,7 +216,7 @@ impl Bvh {
                     channels.reserve(num_channels);
 
                     while let Some(tok) = tokens.next() {
-                        let channel_ty = ChannelType::from_bstr(tok).map_err(|e| {
+                        let channel_ty = ChannelType::try_from(tok).map_err(|e| {
                             LoadJointsError::ParseChannelError {
                                 error: e,
                                 line: line_num,

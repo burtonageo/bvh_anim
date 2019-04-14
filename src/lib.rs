@@ -116,11 +116,12 @@
 //! 
 //! There are a few ways to create a [`Bvh`][`Bvh`] struct:
 //! 
-//! * You can use the [`load`][`load`] function, which will parse a `BufRead` which may contain a bvh
-//!   file. The [`parse`][`parse`] function is a convenient wrapper function to parse an in-memory slice
-//!   of bytes as a `bvh` file. Note that the file does not need to be strictly utf-8, although it
-//!   should be an ascii-compatible encoding. These functions are also available as associated methods on
-//!   the `Bvh` type directly as [`Bvh::load`][`Bvh::load`] and [`Bvh::parse`][`Bvh::parse`]
+//! * You can use the [`from_reader`][`from_reader`] function, which will parse a `BufRead`
+//!   as a bvh file. The [`from_bytes`][`from_bytes`] function is a convenient wrapper function
+//!   to parse an in-memory slice of bytes as a `bvh` file. Note that the file does not need to
+//!   be strictly UTF-8, although it should be an ascii-compatible encoding. These functions are
+//!   also available as associated methods on the `Bvh` type directly as [`Bvh::from_reader`]
+//!   [`Bvh::from_reader`] and [`Bvh::from_bytes`][`Bvh::from_bytes`]
 //! 
 //! * You can use the [`bvh!`][`bvh!`] macro to construct a [`Bvh`][`Bvh`] instance in your source files
 //!   using the same syntax as you would use for a standard bvh file.
@@ -163,10 +164,10 @@
 //!
 //! [`data` directory]: https://github.com/burtonageo/bvh_anim/tree/master/data
 //! [`bvh`]: struct.Bvh.html
-//! [`load`]: fn.load.html
-//! [`parse`]: fn.parse.html
-//! [`Bvh::load`]: struct.Bvh.html#method.load
-//! [`Bvh::parse`]:  struct.Bvh.html#method.parse
+//! [`from_reader`]: fn.from_reader.html
+//! [`from_bytes`]: fn.from_bytes.html
+//! [`Bvh::from_reader`]: struct.Bvh.html#method.from_reader
+//! [`Bvh::from_bytes`]:  struct.Bvh.html#method.from_bytes
 //! [`bvh!`]: macro.bvh.html
 //! [`builder`]: builder/index.html
 //! [`Bvh::new`]: struct.Bvh.html#method.new
@@ -285,14 +286,72 @@ impl EnumeratedLines<'_> {
 
 /// Loads the `Bvh` from the `reader`.
 #[inline]
-pub fn load<R: BufReadExt>(data: R) -> Result<Bvh, LoadError> {
-    Bvh::load(data)
+pub fn from_reader<R: BufReadExt>(data: R) -> Result<Bvh, LoadError> {
+    Bvh::from_reader(data)
 }
 
 /// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
+///
+/// # Examples
+///
+/// ```
+/// # use bvh_anim::{self, from_bytes};
+/// let bvh_string = br#"
+///     HIERARCHY
+///     ROOT Hips
+///     {
+///         OFFSET 0.0 0.0 0.0
+///         CHANNELS 3 Xposition Yposition Zposition
+///         End Site
+///         {
+///             OFFSET 0.0 0.0 0.0
+///         }
+///     }
+///     MOTION
+///     Frames: 1
+///     Frame Time: 0.033333333
+///     0.0 0.0 0.0
+/// "#;
+///
+/// let bvh = from_bytes(&bvh_string[..])?;
+/// # let _ = bvh;
+/// # Result::<(), bvh_anim::errors::LoadError>::Ok(())
+/// ```
 #[inline]
-pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
-    Bvh::parse(bytes)
+pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
+    Bvh::from_bytes(bytes)
+}
+
+/// Parse a `str` as if it were an in-memory `Bvh` file.
+///
+/// # Examples
+///
+/// ```
+/// # use bvh_anim::{self, from_str};
+/// let bvh_string = "
+///     HIERARCHY
+///     ROOT Hips
+///     {
+///         OFFSET 0.0 0.0 0.0
+///         CHANNELS 3 Xposition Yposition Zposition
+///         End Site
+///         {
+///             OFFSET 0.0 0.0 0.0
+///         }
+///     }
+///     MOTION
+///     Frames: 1
+///     Frame Time: 0.033333333
+///     0.0 0.0 0.0
+/// ";
+///
+/// let bvh = from_str(bvh_string)?;
+/// # let _ = bvh;
+/// # Result::<(), bvh_anim::errors::LoadError>::Ok(())
+/// ```
+#[inline]
+pub fn from_str(string: &str) -> Result<Bvh, LoadError> {
+    Bvh::from_str(string)
 }
 
 /// A complete `bvh` file.
@@ -322,12 +381,39 @@ impl Bvh {
     }
 
     /// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
-    pub fn parse<B: AsRef<[u8]>>(bytes: B) -> Result<Self, LoadError> {
-        Bvh::load(Cursor::new(bytes))
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bvh_anim::{self, Bvh};
+    /// let bvh_string = br##"
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 3 Xposition Yposition Zposition
+    ///         End Site
+    ///         {
+    ///             OFFSET 0.0 0.0 0.0
+    ///         }
+    ///     }
+    ///     MOTION
+    ///     Frames: 1
+    ///     Frame Time: 0.033333333
+    ///     0.0 0.0 0.0
+    /// "##;
+    ///
+    /// let bvh = Bvh::from_bytes(&bvh_string[..])?;
+    /// # let _ = bvh;
+    /// # Result::<(), bvh_anim::errors::LoadError>::Ok(())
+    /// ```
+    #[inline]
+    pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<Self, LoadError> {
+        Bvh::from_reader(Cursor::new(bytes))
     }
 
     /// Loads the `Bvh` from the `reader`.
-    pub fn load<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
+    pub fn from_reader<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
         let reader: &mut dyn BufReadExt = reader.by_ref();
         let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
@@ -542,6 +628,38 @@ impl fmt::Display for Bvh {
     }
 }
 
+impl FromStr for Bvh {
+    type Err = LoadError;
+    #[inline]
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        Bvh::from_bytes(string.as_bytes())
+    }
+}
+
+impl TryFrom<&'_ str> for Bvh {
+    type Error = LoadError;
+    #[inline]
+    fn try_from(string: &'_ str) -> Result<Self, Self::Error> {
+        FromStr::from_str(string)
+    }
+}
+
+impl TryFrom<&'_ BStr> for Bvh {
+    type Error = LoadError;
+    #[inline]
+    fn try_from(string: &'_ BStr) -> Result<Self, Self::Error> {
+        Bvh::from_bytes(string.as_bytes())
+    }
+}
+
+impl TryFrom<&'_ [u8]> for Bvh {
+    type Error = LoadError;
+    #[inline]
+    fn try_from(bytes: &'_ [u8]) -> Result<Self, Self::Error> {
+        Bvh::from_bytes(bytes)
+    }
+}
+
 /// A `Channel` composed of a `ChannelType` and an index into the
 /// corresponding motion data.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -600,14 +718,14 @@ impl ChannelType {
     /// ```
     /// # use bvh_anim::ChannelType;
     /// assert_eq!(
-    ///     ChannelType::from_bstr("Xrotation").unwrap(),
+    ///     ChannelType::from_bytes("Xrotation").unwrap(),
     ///     ChannelType::RotationX);
     ///
-    /// let err = ChannelType::from_bstr("Hello").unwrap_err();
+    /// let err = ChannelType::from_bytes("Hello").unwrap_err();
     /// assert_eq!(err.into_inner(), "Hello");
     /// ```
     #[inline]
-    pub fn from_bstr<B>(s: &B) -> Result<Self, ParseChannelError>
+    pub fn from_bytes<B>(s: &B) -> Result<Self, ParseChannelError>
     where
         B: AsRef<[u8]> + ?Sized
     {
@@ -713,7 +831,7 @@ impl TryFrom<&'_ BStr> for ChannelType {
     type Error = ParseChannelError;
     #[inline]
     fn try_from(string: &BStr) -> Result<Self, Self::Error> {
-        ChannelType::from_bstr(string)
+        ChannelType::from_bytes(string)
     }
 }
 
@@ -721,7 +839,7 @@ impl TryFrom<&'_ [u8]> for ChannelType {
     type Error = ParseChannelError;
     #[inline]
     fn try_from(string: &[u8]) -> Result<Self, Self::Error> {
-        ChannelType::from_bstr(string)
+        ChannelType::from_bytes(string)
     }
 }
 
@@ -737,7 +855,7 @@ impl FromStr for ChannelType {
     type Err = ParseChannelError;
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ChannelType::from_bstr(s)
+        ChannelType::from_bytes(s)
     }
 }
 

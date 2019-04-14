@@ -8,13 +8,13 @@ fn load_success() {
         .map(BufReader::new)
         .unwrap();
 
-    let _bvh = bvh_anim::load(reader).unwrap();
+    let _bvh = bvh_anim::from_reader(reader).unwrap();
 }
 
 #[test]
 fn string_parse_small() {
     const BVH_BYTES: &[u8] = include_bytes!("../data/test_simple.bvh");
-    let bvh = bvh_anim::parse(BVH_BYTES).unwrap();
+    let bvh = bvh_anim::from_bytes(BVH_BYTES).unwrap();
 
     let bvh_from_macro = bvh_anim::bvh! {
         HIERARCHY
