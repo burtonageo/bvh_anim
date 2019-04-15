@@ -727,7 +727,7 @@ impl ChannelType {
     #[inline]
     pub fn from_bytes<B>(s: &B) -> Result<Self, ParseChannelError>
     where
-        B: AsRef<[u8]> + ?Sized
+        B: AsRef<[u8]> + ?Sized,
     {
         let s = BStr::new(s);
         match s.as_bytes() {
