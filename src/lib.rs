@@ -386,7 +386,7 @@ impl Bvh {
     ///
     /// ```
     /// # use bvh_anim::{self, Bvh};
-    /// let bvh_string = br##"
+    /// let bvh_string = br#"
     ///     HIERARCHY
     ///     ROOT Hips
     ///     {
@@ -401,7 +401,7 @@ impl Bvh {
     ///     Frames: 1
     ///     Frame Time: 0.033333333
     ///     0.0 0.0 0.0
-    /// "##;
+    /// "#;
     ///
     /// let bvh = Bvh::from_bytes(&bvh_string[..])?;
     /// # let _ = bvh;

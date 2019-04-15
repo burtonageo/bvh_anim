@@ -199,8 +199,8 @@ impl JointData {
     ///             }
     ///         }
     ///     }
-    ///     // ...
     ///     MOTION
+    ///     // ...
     /// #   Frames: 0
     /// #   Frame Time: 0.0333333
     /// };
