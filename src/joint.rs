@@ -58,7 +58,7 @@ impl JointData {
     ///     Frames: 0
     ///     Frame Time: 0.0333333
     /// };
-    /// 
+    ///
     /// let root = bvh.root_joint().unwrap();
     /// assert!(root.data().is_root());
     /// ```
@@ -97,7 +97,7 @@ impl JointData {
     /// #   Frame Time: 0.0333333
     ///     // bvh hierarchy unspecified ..
     /// };
-    /// 
+    ///
     /// for joint in bvh.joints().skip(1) {
     ///     assert!(joint.data().is_child());
     /// }
@@ -132,7 +132,7 @@ impl JointData {
     /// #   Frames: 0
     /// #   Frame Time: 0.0333333
     /// };
-    /// 
+    ///
     /// let root = bvh.root_joint().unwrap();
     /// assert_eq!(root.data().name(), "Hips");
     /// ```
@@ -165,9 +165,10 @@ impl JointData {
     /// #   Frames: 0
     /// #   Frame Time: 0.0333333
     /// };
-    /// 
+    ///
     /// let root = bvh.root_joint().unwrap();
     /// assert_eq!(root.data().offset(), &[1.2, 3.4, 5.6].into());
+    /// ```
     #[inline]
     pub fn offset(&self) -> &Vector3<f32> {
         match *self {
@@ -175,8 +176,41 @@ impl JointData {
         }
     }
 
-    /// Returns the `end_site_offset` if this `Joint` has an end site, or `None` if
+    /// Returns the `end_site` position if this `Joint` has an end site, or `None` if
     /// it doesn't.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Base
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         JOINT Tip
+    ///         {
+    ///             OFFSET 0.0 0.0 5.0
+    ///             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///             End Site
+    ///             {
+    ///                 OFFSET 5.4 3.2 1.0
+    ///             }
+    ///         }
+    ///     }
+    ///     // ...
+    ///     MOTION
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    /// let mut joints = bvh.joints();
+    /// let base = joints.next().unwrap();
+    /// assert!(base.data().end_site().is_none());
+    ///
+    /// let tip = joints.next().unwrap();
+    /// assert_eq!(tip.data().end_site(), Some([5.4, 3.2, 1.0].into()).as_ref());
+    /// ```
     #[inline]
     pub fn end_site(&self) -> Option<&Vector3<f32>> {
         match *self {
@@ -195,6 +229,48 @@ impl JointData {
     }
 
     /// Returns the ordered array of `Channel`s of this `JointData`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::{bvh, ChannelType};
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         // ...
+    /// #       End Site {
+    /// #           OFFSET 0.0 0.0 30.0
+    /// #       }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    ///
+    /// let root = bvh.root_joint().unwrap();
+    /// let expected_channels = &[
+    ///     ChannelType::PositionX,
+    ///     ChannelType::PositionY,
+    ///     ChannelType::PositionZ,
+    ///     ChannelType::RotationZ,
+    ///     ChannelType::RotationX,
+    ///     ChannelType::RotationY,
+    /// ];
+    ///
+    /// for (channel, &expected) in root
+    ///     .data()
+    ///     .channels()
+    ///     .iter()
+    ///     .map(|c| c.channel_type())
+    ///     .zip(expected_channels.iter())
+    /// {
+    ///     assert_eq!(channel, expected);
+    /// }
+    /// ```
     #[inline]
     pub fn channels(&self) -> &[Channel] {
         match *self {
