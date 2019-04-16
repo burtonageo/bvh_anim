@@ -16,7 +16,7 @@
 #[cfg(target_family = "unix")]
 use cfile::CFile;
 use crate::{duation_to_fractional_seconds, frames_iter_logic, Bvh, Channel, ChannelType};
-use libc::{c_char, c_double, c_float, c_int, FILE, size_t, strlen, uint8_t};
+use libc::{c_char, c_double, c_float, c_int, size_t, strlen, uint8_t, FILE};
 use mint::Vector3;
 use std::{
     convert::TryFrom,
@@ -75,6 +75,8 @@ pub struct bvh_Joint {
     pub joint_name: *mut c_char,
     /// The ordered array of channels of the `bvh_Joint`.
     pub joint_channels: *mut bvh_Channel,
+    /// _private_ The capacity of the array of channels of the `bvh_Joint`.
+    pub _joint_channels_capacity: size_t,
     /// The length of the `joint_channels` array.
     pub joint_num_channels: size_t,
     /// The index of the parent `bvh_Joint` in the `bvh_BvhFile::bvh_joints`
@@ -105,6 +107,8 @@ pub struct bvh_BvhFile {
     pub bvh_joints: *mut bvh_Joint,
     /// The length of the array of joints of the bvh.
     pub bvh_num_joints: size_t,
+    /// _private_ The capacity of the array of joints of the bvh.
+    pub _bvh_joints_capacity: size_t,
     /// The number of frames in the bvh file.
     pub bvh_num_frames: size_t,
     /// The number of channels in the bvh file.
@@ -112,15 +116,17 @@ pub struct bvh_BvhFile {
     /// The array of motion data in the bvh file. This has a total
     /// size of `bvh_num_frames * bvh_num_channels`.
     pub bvh_motion_data: *mut c_float,
+    /// _private_ The capacity of the array of motion data of the bvh.
+    pub _bvh_motion_data_capacity: size_t,
     /// The time of each frame of the bvh file in seconds.
     pub bvh_frame_time: c_double,
 }
 
 /// Read the contents of `bvh_file`, and write the data to `out_bvh`.
-/// 
+///
 /// * On success, this function will return `0`, and `out_bvh` will be in a
 ///   valid state.
-/// 
+///
 /// * On failure, this function will return a value greater than `0`,
 ///   and `out_bvh` will not be modified.
 ///
@@ -134,10 +140,10 @@ pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile
 }
 
 /// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`.
-/// 
+///
 /// * On success, this function returns `0`, and `out_bvh` will be in
 ///   a valid state.
-/// 
+///
 /// * On failure, this function returns a value greater than `0`,
 ///   and `out_bvh` will not be modified.
 #[no_mangle]
@@ -161,7 +167,7 @@ pub unsafe extern "C" fn bvh_parse(bvh_string: *const c_char, out_bvh: *mut bvh_
 }
 
 /// Destroy the `bvh_BvhFile`, cleaning up all memory.
-/// 
+///
 /// It is a use after free error to read any fields from the `bvh_file`
 /// or the `bvh_Joint`s it owned after this function is called on it.
 ///
@@ -189,14 +195,18 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
         let channels = Vec::from_raw_parts(
             joint.joint_channels,
             joint.joint_num_channels,
-            joint.joint_num_channels,
+            joint._joint_channels_capacity,
         );
 
         drop(name);
         drop(channels);
     }
 
-    let joints = Vec::from_raw_parts(bvh_file.bvh_joints, num_joints, num_joints);
+    let joints = Vec::from_raw_parts(
+        bvh_file.bvh_joints,
+        num_joints,
+        bvh_file._bvh_joints_capacity,
+    );
 
     drop(joints);
 
@@ -204,7 +214,7 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
     let data = Vec::from_raw_parts(
         bvh_file.bvh_motion_data,
         num_motion_values,
-        num_motion_values,
+        bvh_file._bvh_motion_data_capacity,
     );
 
     drop(data);
@@ -370,6 +380,7 @@ impl Bvh {
                     .map(|name| name.into_raw())
                     .unwrap_or(ptr::null_mut()),
                 joint_num_channels: channels.len(),
+                _joint_channels_capacity: channels.capacity(),
                 joint_channels: channels.as_mut_ptr(),
                 joint_parent_index: joint.parent_index().unwrap_or(usize::max_value()),
                 joint_depth: joint.depth(),
@@ -384,11 +395,13 @@ impl Bvh {
         }
 
         out_bvh.bvh_joints = out_bvh_joints_vec.as_mut_ptr();
+        out_bvh._bvh_joints_capacity = out_bvh_joints_vec.capacity();
 
         mem::forget(out_bvh_joints_vec);
 
         out_bvh.bvh_frame_time = duation_to_fractional_seconds(self.frame_time());
         out_bvh.bvh_motion_data = self.motion_values.as_mut_ptr();
+        out_bvh._bvh_motion_data_capacity = self.motion_values.capacity();
         out_bvh.bvh_num_channels = self.num_channels;
         out_bvh.bvh_num_frames = self.num_frames;
 
@@ -441,9 +454,11 @@ impl Default for bvh_BvhFile {
         bvh_BvhFile {
             bvh_joints: ptr::null_mut(),
             bvh_num_joints: Default::default(),
+            _bvh_joints_capacity: Default::default(),
             bvh_num_frames: Default::default(),
             bvh_num_channels: Default::default(),
             bvh_motion_data: ptr::null_mut(),
+            _bvh_motion_data_capacity: Default::default(),
             bvh_frame_time: Default::default(),
         }
     }
@@ -455,6 +470,7 @@ impl Default for bvh_Joint {
         bvh_Joint {
             joint_name: ptr::null_mut(),
             joint_channels: ptr::null_mut(),
+            _joint_channels_capacity: Default::default(),
             joint_num_channels: 0,
             joint_parent_index: 0,
             joint_depth: 0,
