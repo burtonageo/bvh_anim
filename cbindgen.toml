@@ -3,6 +3,7 @@ language = "C"
 tab_width = 4
 style = "Tag"
 documentation_style = "Doxy"
+sys_includes = ["stdio.h"]
 autogen_warning = "/* This file has been automatically generated - do not edit it manually. */"
 header = """
 /*

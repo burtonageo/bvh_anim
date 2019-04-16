@@ -124,43 +124,11 @@ pub struct bvh_BvhFile {
 /// This function will not close `bvh_file`.
 ///
 /// This method only works on UNIX due to a dependency issue.
-#[cfg(target_family = "unix")]
 #[no_mangle]
 pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
-    // @TODO(burtonageo): errors
-    // @TODO(burtonageo): Windows (see https://github.com/flier/rust-cfile/issues/2)
-    if bvh_file.is_null() {
-        return 1;
-    }
-
-    let is_owned = false;
-    let cfile = match CFile::from_raw(bvh_file, is_owned) {
-        Ok(f) => f,
-        Err(_) => return 1,
-    };
-
-    let bvh = match Bvh::from_reader(BufReader::new(cfile)) {
-        Ok(bvh) => bvh,
-        Err(_) => return 1,
-    };
-
-    *out_bvh = bvh.into_ffi();
+    bvh_read_internal(bvh_file, out_bvh)
 }
 
-/// Read the contents of `bvh_file`, and write the data to `out_bvh`. On
-/// success, this function will return `0`, and `out_bvh` will be in a valid
-/// state. On failure, this function will return a value greater than `0`,
-/// and `out_bvh` will not be modified.
-///
-/// This function will not close `bvh_file`.
-///
-/// This method only works on UNIX due to a dependency issue.
-#[cfg(not(target_family = "unix"))]
-#[no_mangle]
-pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
-    let _ = (bvh_file, out_bvh);
-    1
-}
 /// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`. On
 /// success, this function will return `0`, and `out_bvh` will be in a valid
 /// state. On failure, this function will return a value greater than `0`,
@@ -419,6 +387,36 @@ impl Bvh {
 
         out_bvh
     }
+}
+
+#[inline]
+#[cfg(target_family = "unix")]
+unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
+    // @TODO(burtonageo): errors
+    if bvh_file.is_null() {
+        return 1;
+    }
+
+    let is_owned = false;
+    let cfile = match CFile::from_raw(bvh_file, is_owned) {
+        Ok(f) => f,
+        Err(_) => return 1,
+    };
+
+    let bvh = match Bvh::from_reader(BufReader::new(cfile)) {
+        Ok(bvh) => bvh,
+        Err(_) => return 1,
+    };
+
+    *out_bvh = bvh.into_ffi();
+}
+
+#[inline]
+#[cfg(not(target_family = "unix"))]
+unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
+    // @TODO(burtonageo): Windows (see https://github.com/flier/rust-cfile/issues/2)
+    let _ = (bvh_file, out_bvh);
+    1
 }
 
 impl From<Bvh> for bvh_BvhFile {
