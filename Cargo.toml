@@ -12,6 +12,9 @@ categories = ["rendering::data-formats"]
 license = "MIT"
 build = "build.rs"
 
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
 [package.metadata.docs.rs]
 features = ["ffi"]
 
