@@ -1,6 +1,6 @@
 [package]
 name = "bvh_anim"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["George Burton <burtonageo@gmail.com>"]
 repository = "https://github.com/burtonageo/bvh_anim"
 documentation = "https://docs.rs/bvh_anim/"
