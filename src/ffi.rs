@@ -431,6 +431,8 @@ unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c
     };
 
     *out_bvh = bvh.into_ffi();
+
+    0
 }
 
 #[inline]
