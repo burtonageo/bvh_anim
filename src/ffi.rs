@@ -116,10 +116,13 @@ pub struct bvh_BvhFile {
     pub bvh_frame_time: c_double,
 }
 
-/// Read the contents of `bvh_file`, and write the data to `out_bvh`. On
-/// success, this function will return `0`, and `out_bvh` will be in a valid
-/// state. On failure, this function will return a value greater than `0`,
-/// and `out_bvh` will not be modified.
+/// Read the contents of `bvh_file`, and write the data to `out_bvh`.
+/// 
+/// * On success, this function will return `0`, and `out_bvh` will be in a
+///   valid state.
+/// 
+/// * On failure, this function will return a value greater than `0`,
+///   and `out_bvh` will not be modified.
 ///
 /// This function will not close `bvh_file`.
 ///
@@ -130,10 +133,13 @@ pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile
     bvh_read_internal(bvh_file, out_bvh)
 }
 
-/// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`. On
-/// success, this function will return `0`, and `out_bvh` will be in a valid
-/// state. On failure, this function will return a value greater than `0`,
-/// and `out_bvh` will not be modified.
+/// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`.
+/// 
+/// * On success, this function returns `0`, and `out_bvh` will be in
+///   a valid state.
+/// 
+/// * On failure, this function returns a value greater than `0`,
+///   and `out_bvh` will not be modified.
 #[no_mangle]
 pub unsafe extern "C" fn bvh_parse(bvh_string: *const c_char, out_bvh: *mut bvh_BvhFile) -> c_int {
     // @TODO(burtonageo): errors
@@ -154,9 +160,10 @@ pub unsafe extern "C" fn bvh_parse(bvh_string: *const c_char, out_bvh: *mut bvh_
     0
 }
 
-/// Destroy the `bvh_BvhFile`, cleaning up all memory. It is a use after free
-/// error to read any fields from the `bvh_file` or the `bvh_Joint`s it owned
-/// after this function is called on it.
+/// Destroy the `bvh_BvhFile`, cleaning up all memory.
+/// 
+/// It is a use after free error to read any fields from the `bvh_file`
+/// or the `bvh_Joint`s it owned after this function is called on it.
 ///
 /// This function should only be called on `bvh_BvhFile`s initialised using the
 /// `bvh_parse` function, or which have otherwise been created in rust functions
