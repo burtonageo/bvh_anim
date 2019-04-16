@@ -42,6 +42,17 @@ bvh.write_to(&mut out_file)?;
 For more information about the bvh file format and using this library,
 see the documentation on [docs.rs](https://docs.rs/bvh_anim).
 
+## Features
+
+This crate has a small ffi module which allows you to parse `bvh` files
+from `C` code. The `ffi` module can be enabled with the `ffi` feature.
+
+In addition, the `bindings` feature can be enabled to generate the `C`
+bindings using `cbindgen`. The bindings header is written to either
+`$CARGO_TARGET_DIR` if it is specified, or
+`$CARGO_MANIFEST_DIR/target/include/bvh_anim/bvh_anim.h` if it is
+not.
+
 ## Contributing
 
 This library welcomes open source contributions, including pull requests and bug
