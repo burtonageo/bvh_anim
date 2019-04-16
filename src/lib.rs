@@ -42,6 +42,8 @@
 //!   Channels are listed in the order in which the transformation should be applied
 //!   to the global transform for the root.
 //! * An offset, which is the vector distance from the parent joint.
+//! * An optional end site, which is used to cap off a chain of joints. This is only used
+//!   to calculate the length of the final bone in the chain.
 //!
 //! ```text
 //! HEIRARCHY
@@ -945,7 +947,8 @@ impl<'a> Iterator for Frames<'a> {
     type Item = &'a Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let range = frames_iter_logic(self.num_channels, self.num_frames, &mut self.curr_frame)?;
+        let range = frames_iter_logic(self.num_channels, self.num_frames, self.curr_frame)?;
+        self.curr_frame += 1;
         Some(Frame::from_slice(&self.motion_values[range]))
     }
 }
@@ -977,7 +980,8 @@ impl<'a> Iterator for FramesMut<'a> {
     type Item = &'a mut Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let range = frames_iter_logic(self.num_channels, self.num_frames, &mut self.curr_frame)?;
+        let range = frames_iter_logic(self.num_channels, self.num_frames, self.curr_frame)?;
+        self.curr_frame += 1;
         unsafe {
             // Cast the anonymous lifetime to the 'a lifetime to avoid E0495.
             // @TODO: is this safe?
@@ -992,16 +996,14 @@ impl<'a> Iterator for FramesMut<'a> {
 fn frames_iter_logic(
     num_channels: usize,
     num_frames: usize,
-    curr_frame: &mut usize,
+    curr_frame: usize,
 ) -> Option<Range<usize>> {
-    if num_frames == 0 || *curr_frame >= num_frames {
+    if num_frames == 0 || curr_frame >= num_frames {
         return None;
     }
 
-    let start = *curr_frame * num_channels;
+    let start = curr_frame * num_channels;
     let end = start + num_channels;
-
-    *curr_frame += 1;
 
     Some(Range { start, end })
 }

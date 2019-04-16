@@ -12,6 +12,9 @@ categories = ["rendering::data-formats"]
 license = "MIT"
 build = "build.rs"
 
+[package.metadata.docs.rs]
+features = ["ffi"]
+
 [dependencies]
 bstr = "0.1.2"
 lexical = "2.1"
