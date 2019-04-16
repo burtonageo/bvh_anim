@@ -197,6 +197,10 @@ mod macros;
 
 pub mod builder;
 pub mod errors;
+
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
 pub mod write;
 
 mod joint;

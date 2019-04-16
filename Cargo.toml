@@ -10,6 +10,7 @@ description = "A .bvh file parser"
 keywords = ["bvh", "biovision", "parser", "animation", "skeletal"]
 categories = ["rendering::data-formats"]
 license = "MIT"
+build = "build.rs"
 
 [dependencies]
 bstr = "0.1.2"
@@ -18,7 +19,19 @@ mint = "0.5"
 num-traits = "0.2"
 smallvec = "0.6"
 
+[dependencies.libc]
+version = "0.2"
+optional = true
+
+[build-dependencies.cbindgen]
+version = "0.8"
+optional = true
+
 [dev-dependencies]
 pretty_assertions = "0.6.1"
 winit = "0.18"
 wgpu = "0.2"
+
+[features]
+ffi = ["libc"]
+bindings = ["cbindgen", "ffi"]

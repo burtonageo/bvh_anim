@@ -1,0 +1,8 @@
+include_guard = "BVH_ANIM_H"
+language = "C"
+tab_width = 4
+style = "Tag"
+documentation_style = "Doxy"
+
+[export]
+exclude = ["NSEC_FACTOR"]
