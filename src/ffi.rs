@@ -212,6 +212,7 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
 
 /// Writes the `bvh_file` to the string `out_buffer`, and the length of
 /// the output string (including null terminator) to `out_buffer_len`.
+///
 /// If `out_buffer` is `NULL`, then it is not written to.
 ///
 /// Returns `0` on success. On failure, this function will return a non-0
