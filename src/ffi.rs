@@ -13,12 +13,15 @@
 //! [`Bvh::from_ffi`]: struct.Bvh.html#method.from_ffi
 //! [`Bvh::into_ffi`]: struct.Bvh.html#method.into_ffi
 
+#[cfg(target_family = "unix")]
+use cfile::CFile;
 use crate::{duation_to_fractional_seconds, frames_iter_logic, Bvh, Channel, ChannelType};
-use libc::{c_char, c_double, c_float, c_int, size_t, strlen, uint8_t};
+use libc::{c_char, c_double, c_float, c_int, FILE, size_t, strlen, uint8_t};
 use mint::Vector3;
 use std::{
     convert::TryFrom,
     ffi::{CStr, CString},
+    io::BufReader,
     mem, ptr,
 };
 
@@ -113,12 +116,58 @@ pub struct bvh_BvhFile {
     pub bvh_frame_time: c_double,
 }
 
+/// Read the contents of `bvh_file`, and write the data to `out_bvh`. On
+/// success, this function will return `0`, and `out_bvh` will be in a valid
+/// state. On failure, this function will return a value greater than `0`,
+/// and `out_bvh` will not be modified.
+///
+/// This function will not close `bvh_file`.
+///
+/// This method only works on UNIX due to a dependency issue.
+#[cfg(target_family = "unix")]
+#[no_mangle]
+pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
+    // @TODO(burtonageo): errors
+    // @TODO(burtonageo): Windows (see https://github.com/flier/rust-cfile/issues/2)
+    if bvh_file.is_null() {
+        return 1;
+    }
+
+    let is_owned = false;
+    let cfile = match CFile::from_raw(bvh_file, is_owned) {
+        Ok(f) => f,
+        Err(_) => return 1,
+    };
+
+    let bvh = match Bvh::from_reader(BufReader::new(cfile)) {
+        Ok(bvh) => bvh,
+        Err(_) => return 1,
+    };
+
+    *out_bvh = bvh.into_ffi();
+}
+
+/// Read the contents of `bvh_file`, and write the data to `out_bvh`. On
+/// success, this function will return `0`, and `out_bvh` will be in a valid
+/// state. On failure, this function will return a value greater than `0`,
+/// and `out_bvh` will not be modified.
+///
+/// This function will not close `bvh_file`.
+///
+/// This method only works on UNIX due to a dependency issue.
+#[cfg(not(target_family = "unix"))]
+#[no_mangle]
+pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
+    let _ = (bvh_file, out_bvh);
+    1
+}
 /// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`. On
 /// success, this function will return `0`, and `out_bvh` will be in a valid
 /// state. On failure, this function will return a value greater than `0`,
 /// and `out_bvh` will not be modified.
 #[no_mangle]
 pub unsafe extern "C" fn bvh_parse(bvh_string: *const c_char, out_bvh: *mut bvh_BvhFile) -> c_int {
+    // @TODO(burtonageo): errors
     if out_bvh.is_null() {
         return 1;
     }
@@ -300,21 +349,29 @@ impl From<bvh_Channel> for Channel {
 }
 
 impl Bvh {
-    /// Construct a `Bvh` from a [`ffi::bvh_BvhFile`][`ffi::bvh_BvhFile`].
+    /// Construct a `Bvh` from a `ffi::bvh_BvhFile`.
+    ///
+    /// # Notes
+    ///
+    /// This method is only present if the `ffi` feature is enabled.
     ///
     /// # Safety
     ///
-    /// This operation is unsafe because the `bvh` may point to memory not
+    /// This operation is unsafe because `bvh` may point to memory not
     /// allocated by the rust allocator, which may cause memory errors.
     ///
-    /// [`ffi::bvh_BvhFile`]: ffi/struct.bvh_BvhFile.html
+    /// In addition, this method will take ownership of memory which was
+    /// owned by `bvh`, which may cause corruption if there are still
+    /// references to `bvh`'s data.
     pub unsafe fn from_ffi(bvh: bvh_BvhFile) -> Result<Self, ()> {
         Err(())
     }
 
-    /// Converts the `Bvh` into a [`ffi::bvh_BvhFile`][`ffi::bvh_BvhFile`].
+    /// Converts the `Bvh` into a `ffi::bvh_BvhFile`.
     ///
-    /// [`ffi::bvh_BvhFile`]: ffi/struct.bvh_BvhFile.html
+    /// # Notes
+    ///
+    /// This method is only present if the `ffi` feature is enabled.
     pub fn into_ffi(mut self) -> bvh_BvhFile {
         let mut out_bvh = bvh_BvhFile::default();
         out_bvh.bvh_num_joints = self.joints.len();
