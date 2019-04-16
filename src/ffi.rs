@@ -123,7 +123,8 @@ pub struct bvh_BvhFile {
 ///
 /// This function will not close `bvh_file`.
 ///
-/// This method only works on UNIX due to a dependency issue.
+/// This method only works on UNIX due to a dependency issue. To work around
+/// this, read the file to a string, and then use `bvh_parse`.
 #[no_mangle]
 pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
     bvh_read_internal(bvh_file, out_bvh)
