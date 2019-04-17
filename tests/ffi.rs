@@ -1,6 +1,6 @@
 #![cfg(feature = "ffi")]
 
-use bvh_anim::{Bvh, bvh};
+use bvh_anim::{bvh, Bvh};
 
 #[test]
 fn ffi_convert() {
@@ -55,4 +55,53 @@ fn ffi_convert() {
         Bvh::from_ffi(ffi).unwrap()
     };
     assert_eq!(bvh_clone, from_ffi);
+}
+
+#[cfg(target_family = "unix")]
+#[test]
+fn ffi_load_from_cfile() {
+    use bvh_anim::ffi::{bvh_BvhFile, bvh_read};
+    use libc;
+    use std::{ffi::CStr, ptr};
+
+    let expected_bvh = bvh! {
+        HIERARCHY
+        ROOT Base
+        {
+            OFFSET 0.0 0.0 0.0
+            CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+            JOINT End
+            {
+                OFFSET 0.0 0.0 15.0
+                CHANNELS 3 Zrotation Xrotation Yrotation
+                End Site
+                {
+                    OFFSET 0.0 0.0 30.0
+                }
+            }
+        }
+        MOTION
+        Frames: 2
+        Frame Time: 0.033333333
+        0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
+        1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+    };
+
+    unsafe {
+        let file = libc::fopen(
+            CStr::from_bytes_with_nul(b"./data/test_simple.bvh\0")
+                .unwrap()
+                .as_ptr(),
+            CStr::from_bytes_with_nul(b"r\0").unwrap().as_ptr(),
+        );
+
+        assert_ne!(file, ptr::null_mut());
+
+        let mut bvh = bvh_BvhFile::default();
+        let result = bvh_read(file, &mut bvh);
+        assert_eq!(result, 0);
+
+        let bvh = Bvh::from_ffi(bvh).unwrap();
+        assert_eq!(bvh, expected_bvh);
+    }
 }
