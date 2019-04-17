@@ -35,6 +35,7 @@ header = """
 """
 
 [export]
+# Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
 exclude = ["NSEC_FACTOR"]
 include = ["BVH_JOINT_PARENT_INDEX_NONE"]
 
