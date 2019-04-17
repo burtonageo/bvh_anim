@@ -15,9 +15,8 @@
 #[cfg(target_family = "unix")]
 use cfile::CFile;
 use crate::{
-    JointData, joint::JointPrivateData,
-    duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic, Bvh, Channel,
-    ChannelType,
+    duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic,
+    joint::JointPrivateData, Bvh, Channel, ChannelType, JointData,
 };
 use libc::{c_char, c_double, c_float, c_int, size_t, uint8_t, FILE};
 use mint::Vector3;
@@ -292,7 +291,11 @@ impl From<Vector3<f32>> for bvh_Offset {
 impl From<bvh_Offset> for Vector3<f32> {
     #[inline]
     fn from(offset: bvh_Offset) -> Self {
-        let crate::ffi::bvh_Offset { offset_x, offset_y, offset_z } = offset;
+        let crate::ffi::bvh_Offset {
+            offset_x,
+            offset_y,
+            offset_z,
+        } = offset;
         [offset_x, offset_y, offset_z].into()
     }
 }
@@ -404,7 +407,7 @@ impl Bvh {
                 let joint = JointData::Child {
                     name: CString::from_raw(ffi_joint.joint_name).into(),
                     offset: ffi_joint.joint_offset.into(),
-                    channels:channels.into_iter().map(Into::into).collect(),
+                    channels: channels.into_iter().map(Into::into).collect(),
                     end_site_offset: if ffi_joint.joint_has_end_site == 1 {
                         Some(ffi_joint.joint_end_site.into())
                     } else {

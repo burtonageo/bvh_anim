@@ -4,7 +4,7 @@ use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
-    ffi::{CString, CStr},
+    ffi::{CStr, CString},
     fmt, mem,
     ops::{Deref, DerefMut},
     str,
