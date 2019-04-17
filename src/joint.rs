@@ -4,6 +4,7 @@ use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
+    ffi::{CString, CStr},
     fmt, mem,
     ops::{Deref, DerefMut},
     str,
@@ -448,6 +449,34 @@ macro_rules! impl_from {
             }
         }
         impl_from!($($rest)*);
+    }
+}
+
+impl From<CString> for JointName {
+    #[inline]
+    fn from(s: CString) -> Self {
+        From::from(s.into_bytes())
+    }
+}
+
+impl From<&'_ CStr> for JointName {
+    #[inline]
+    fn from(s: &'_ CStr) -> Self {
+        From::from(s.to_bytes())
+    }
+}
+
+impl From<Vec<u8>> for JointName {
+    #[inline]
+    fn from(s: Vec<u8>) -> Self {
+        JointName(s.into_iter().collect())
+    }
+}
+
+impl From<&'_ [u8]> for JointName {
+    #[inline]
+    fn from(s: &'_ [u8]) -> Self {
+        From::from(BStr::new(s))
     }
 }
 

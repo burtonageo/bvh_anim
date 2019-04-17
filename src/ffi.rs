@@ -1,5 +1,4 @@
 #![allow(nonstandard_style)]
-#![allow(unused, missing_docs)]
 
 //! The ffi interface to the `bvh_anim` crate. You must enable the `ffi` feature
 //! to access this module.
@@ -15,13 +14,16 @@
 
 #[cfg(target_family = "unix")]
 use cfile::CFile;
-use crate::{duation_to_fractional_seconds, frames_iter_logic, Bvh, Channel, ChannelType};
-use libc::{c_char, c_double, c_float, c_int, size_t, strlen, uint8_t, FILE};
+use crate::{
+    JointData, joint::JointPrivateData,
+    duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic, Bvh, Channel,
+    ChannelType,
+};
+use libc::{c_char, c_double, c_float, c_int, size_t, uint8_t, FILE};
 use mint::Vector3;
 use std::{
     convert::TryFrom,
     ffi::{CStr, CString},
-    io::BufReader,
     mem, ptr,
 };
 
@@ -156,7 +158,7 @@ pub unsafe extern "C" fn bvh_parse(bvh_string: *const c_char, out_bvh: *mut bvh_
     let bvh_string = CStr::from_ptr(bvh_string);
     let bvh = match Bvh::from_bytes(bvh_string.to_bytes()) {
         Ok(bvh) => bvh,
-        Err(e) => {
+        Err(_) => {
             return 1;
         }
     };
@@ -181,7 +183,7 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
         return;
     }
 
-    let mut bvh_file = &mut *bvh_file;
+    let bvh_file = &mut *bvh_file;
 
     let num_joints = bvh_file.bvh_num_joints;
     for i in 0..num_joints {
@@ -190,7 +192,7 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
             Err(_) => continue,
         };
 
-        let mut joint = &mut *bvh_file.bvh_joints.offset(offset);
+        let joint = &mut *bvh_file.bvh_joints.offset(offset);
         let name = CString::from_raw(joint.joint_name);
         let channels = Vec::from_raw_parts(
             joint.joint_channels,
@@ -233,6 +235,7 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
 /// writing to the string: the first time where `out_buffer` is `NULL` so
 /// that you can get the length of the string and allocate the buffer to
 /// hold it, and then a second time to copy the string into `out_buffer`.
+#[allow(unused)]
 #[no_mangle]
 pub unsafe extern "C" fn bvh_to_string(
     bvh_file: *const bvh_BvhFile,
@@ -275,15 +278,22 @@ pub unsafe extern "C" fn bvh_get_frame(
         .unwrap_or(ptr::null_mut())
 }
 
-impl<V: Into<Vector3<f32>>> From<V> for bvh_Offset {
+impl From<Vector3<f32>> for bvh_Offset {
     #[inline]
-    fn from(v: V) -> Self {
-        let v = v.into();
+    fn from(v: Vector3<f32>) -> Self {
         bvh_Offset {
             offset_x: v.x,
             offset_y: v.y,
             offset_z: v.z,
         }
+    }
+}
+
+impl From<bvh_Offset> for Vector3<f32> {
+    #[inline]
+    fn from(offset: bvh_Offset) -> Self {
+        let crate::ffi::bvh_Offset { offset_x, offset_y, offset_z } = offset;
+        [offset_x, offset_y, offset_z].into()
     }
 }
 
@@ -351,7 +361,81 @@ impl Bvh {
     /// owned by `bvh`, which may cause corruption if there are still
     /// references to `bvh`'s data.
     pub unsafe fn from_ffi(bvh: bvh_BvhFile) -> Result<Self, ()> {
-        Err(())
+        // @TODO(burtonageo): Massive error checking/consistency checking required here
+        let joints = if bvh.bvh_num_joints == 0 {
+            if bvh._bvh_joints_capacity > 0 {
+                let joints = Vec::from_raw_parts(bvh.bvh_joints, 0, bvh._bvh_joints_capacity);
+                drop(joints);
+            }
+            Vec::new()
+        } else {
+            let mut out_joints = Vec::with_capacity(bvh.bvh_num_joints);
+            {
+                let ffi_root = &*bvh.bvh_joints.offset(0);
+
+                let channels = Vec::from_raw_parts(
+                    ffi_root.joint_channels,
+                    ffi_root.joint_num_channels,
+                    ffi_root._joint_channels_capacity,
+                );
+
+                let root = JointData::Root {
+                    name: CString::from_raw(ffi_root.joint_name).into(),
+                    offset: ffi_root.joint_offset.into(),
+                    channels: channels.into_iter().map(Into::into).collect(),
+                };
+
+                out_joints.push(root);
+            }
+
+            for i in 1..bvh.bvh_num_joints {
+                let signed_i = match isize::try_from(i) {
+                    Ok(i) => i,
+                    Err(_) => continue,
+                };
+                let ffi_joint = &*bvh.bvh_joints.offset(signed_i);
+
+                let channels = Vec::from_raw_parts(
+                    ffi_joint.joint_channels,
+                    ffi_joint.joint_num_channels,
+                    ffi_joint._joint_channels_capacity,
+                );
+
+                let joint = JointData::Child {
+                    name: CString::from_raw(ffi_joint.joint_name).into(),
+                    offset: ffi_joint.joint_offset.into(),
+                    channels:channels.into_iter().map(Into::into).collect(),
+                    end_site_offset: if ffi_joint.joint_has_end_site == 1 {
+                        Some(ffi_joint.joint_end_site.into())
+                    } else {
+                        None
+                    },
+                    private: JointPrivateData {
+                        self_index: i,
+                        parent_index: ffi_joint.joint_parent_index,
+                        depth: ffi_joint.joint_depth,
+                    },
+                };
+
+                out_joints.push(joint);
+            }
+
+            out_joints
+        };
+
+        let out_bvh = Bvh {
+            joints,
+            motion_values: Vec::from_raw_parts(
+                bvh.bvh_motion_data,
+                bvh.bvh_num_channels * bvh.bvh_num_frames,
+                bvh._bvh_motion_data_capacity,
+            ),
+            num_channels: bvh.bvh_num_channels,
+            num_frames: bvh.bvh_num_frames,
+            frame_time: fraction_seconds_to_duration(bvh.bvh_frame_time),
+        };
+
+        Ok(out_bvh)
     }
 
     /// Converts the `Bvh` into a `ffi::bvh_BvhFile`.
@@ -414,6 +498,8 @@ impl Bvh {
 #[inline]
 #[cfg(target_family = "unix")]
 unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
+    use std::io::BufReader;
+
     // @TODO(burtonageo): errors
     if bvh_file.is_null() {
         return 1;
@@ -421,7 +507,7 @@ unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c
 
     let is_owned = false;
     let cfile = match CFile::from_raw(bvh_file, is_owned) {
-        Ok(f) => f,
+        Ok(f) => BufReader::new(f),
         Err(_) => return 1,
     };
 
