@@ -12,7 +12,6 @@
 //! [`Bvh::from_ffi`]: struct.Bvh.html#method.from_ffi
 //! [`Bvh::into_ffi`]: struct.Bvh.html#method.into_ffi
 
-#[cfg(target_family = "unix")]
 use cfile::CFile;
 use crate::{
     duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic,
@@ -23,7 +22,9 @@ use mint::Vector3;
 use std::{
     convert::TryFrom,
     ffi::{CStr, CString},
-    mem, ptr,
+    io::BufReader,
+    mem,
+    ptr::{self, NonNull},
 };
 
 /// A type representing an `OFFSET` position.
@@ -132,12 +133,22 @@ pub struct bvh_BvhFile {
 ///   and `out_bvh` will not be modified.
 ///
 /// This function will not close `bvh_file`.
-///
-/// This method only works on UNIX due to a dependency issue. To work around
-/// this, read the file to a string, and then use `bvh_parse`.
 #[no_mangle]
 pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
-    bvh_read_internal(bvh_file, out_bvh)
+    // @TODO(burtonageo): errors
+    let cfile = match NonNull::new(bvh_file) {
+        Some(f) => BufReader::new(CFile::borrowed(f)),
+        None => return 1,
+    };
+
+    let bvh = match Bvh::from_reader(cfile) {
+        Ok(bvh) => bvh,
+        Err(_) => return 1,
+    };
+
+    *out_bvh = bvh.into_ffi();
+
+    0
 }
 
 /// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`.
@@ -496,40 +507,6 @@ impl Bvh {
 
         out_bvh
     }
-}
-
-#[inline]
-#[cfg(target_family = "unix")]
-unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
-    use std::io::BufReader;
-
-    // @TODO(burtonageo): errors
-    if bvh_file.is_null() {
-        return 1;
-    }
-
-    let is_owned = false;
-    let cfile = match CFile::from_raw(bvh_file, is_owned) {
-        Ok(f) => BufReader::new(f),
-        Err(_) => return 1,
-    };
-
-    let bvh = match Bvh::from_reader(BufReader::new(cfile)) {
-        Ok(bvh) => bvh,
-        Err(_) => return 1,
-    };
-
-    *out_bvh = bvh.into_ffi();
-
-    0
-}
-
-#[inline]
-#[cfg(not(target_family = "unix"))]
-unsafe fn bvh_read_internal(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
-    // @TODO(burtonageo): Windows (see https://github.com/flier/rust-cfile/issues/2)
-    let _ = (bvh_file, out_bvh);
-    1
 }
 
 impl From<Bvh> for bvh_BvhFile {

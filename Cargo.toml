@@ -29,8 +29,10 @@ smallvec = "0.6"
 version = "0.2"
 optional = true
 
-[target.'cfg(target_family="unix")'.dependencies.cfile]
-version = "0.2"
+[dependencies.cfile]
+# TODO: use version 0.3 when it is published
+# version = "0.3"
+git = "https://github.com/flier/rust-cfile"
 optional = true
 
 [build-dependencies.cbindgen]

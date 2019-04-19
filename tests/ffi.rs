@@ -57,7 +57,6 @@ fn ffi_convert() {
     assert_eq!(bvh_clone, from_ffi);
 }
 
-#[cfg(target_family = "unix")]
 #[test]
 fn ffi_load_from_cfile() {
     use bvh_anim::ffi::{bvh_BvhFile, bvh_read};
@@ -99,6 +98,8 @@ fn ffi_load_from_cfile() {
 
         let mut bvh = bvh_BvhFile::default();
         let result = bvh_read(file, &mut bvh);
+        libc::fclose(file);
+
         assert_eq!(result, 0);
 
         let bvh = Bvh::from_ffi(bvh).unwrap();
