@@ -291,7 +291,7 @@ macro_rules! parse_joints_internal {
 ///     HIERARCHY
 ///     MOTION
 /// };
-/// 
+///
 /// let empty = bvh! {
 ///     HIERARCHY
 ///     MOTION
