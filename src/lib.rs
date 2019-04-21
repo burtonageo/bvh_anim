@@ -19,11 +19,11 @@
 #![deny(bare_trait_objects)]
 
 //! # About this library
-//! 
+//!
 //! A small library for loading and manipulating BioVision motion files.
 //!
 //! ## The bvh file format
-//! 
+//!
 //! The `Bvh` file format is comprised of two main sections: the 'Heirarchy' section,
 //! which defines the joints of the skeleton, and the 'Motion' section, which defines
 //! the motion values for each channel.
@@ -31,7 +31,7 @@
 //! This project contains some samples in the [`data` directory][`data` directory].
 //!
 //! ### Heierarchy
-//! 
+//!
 //! The 'Heirarchy' section defines the skeleton as a tree of joints, where there is
 //! a single root joint, and a chain of child joints extending out from each joint,
 //! terminated by an 'End Site' section.
@@ -84,12 +84,12 @@
 //!
 //! Note that the bvh data is defined in terms of a right-handed coordinate system, where
 //! the positive y-axis is the up vector.
-//! 
+//!
 //! ### Motion
-//! 
+//!
 //! The `MOTION` section of the bvh file records the number of frames, the frame time, and
 //! defines the full range of motions for each channel, frame by frame.
-//! 
+//!
 //! ```text
 //! MOTION
 //! Frames: <num-frames>
@@ -99,35 +99,35 @@
 //! <frame-2-channel-0-value> <frame-2-channel-1-value> <frame-2-channel-2-value> ...
 //! ⋮
 //! ```
-//! 
+//!
 //! The frame time is recorded in seconds, and tells the animation system how long each frame
 //! of the animation should last for. This value is usually around 0.033333333, which is close
 //! to 30 frames per second.
-//! 
+//!
 //! The list of motion values is a matrix, where each row represents a frame. Each column of
 //! the row represents a transformation around the channel axis - for example a motion value
 //! of 130.0 for an `Xposition` channel would correspond to a rotation of 130.0 degrees around
 //! the x-axis.
-//! 
+//!
 //! Note that rotations are conventionally in degrees, although it will be up to your application
 //! how to interpret each motion's value.
-//! 
+//!
 //! ## Using this library.
 //!
 //! ### Creating a [`Bvh`][`Bvh`] struct:
-//! 
+//!
 //! There are a few ways to create a [`Bvh`][`Bvh`] struct:
-//! 
+//!
 //! * You can use the [`from_reader`][`from_reader`] function, which will parse a `BufRead`
 //!   as a bvh file. The [`from_bytes`][`from_bytes`] function is a convenient wrapper function
 //!   to parse an in-memory slice of bytes as a `bvh` file. Note that the file does not need to
 //!   be strictly UTF-8, although it should be an ascii-compatible encoding. These functions are
 //!   also available as associated methods on the `Bvh` type directly as [`Bvh::from_reader`]
 //!   [`Bvh::from_reader`] and [`Bvh::from_bytes`][`Bvh::from_bytes`]
-//! 
+//!
 //! * You can use the [`bvh!`][`bvh!`] macro to construct a [`Bvh`][`Bvh`] instance in your source files
 //!   using the same syntax as you would use for a standard bvh file.
-//! 
+//!
 //! * You can use the [`builder`][`builder`] module to dynamically construct a bvh. This is useful
 //!   for converting data from other formats into a [`Bvh`][`Bvh`] struct.
 //!
@@ -135,10 +135,10 @@
 //!   [`Default::default`] methods.
 //!
 //! ### Other operations:
-//! 
+//!
 //! Once you have a valid [`Bvh`][`Bvh`] struct, there are a number of ways you can inspect and
 //! manipulate it:
-//! 
+//!
 //! * The [`Bvh::joints`][`Bvh::joints`] method can be used to iterate through each [`Joint`][`Joint`]
 //!   of the [`Bvh`][`Bvh`]. Each [`Joint`][`Joint`] can be inspected through its [`JointData`]
 //!   [`JointData`], which can be obtained with the [`Joint::data`][`Joint::data`] method.
@@ -157,9 +157,9 @@
 //! ## Examples
 //!
 //! This library comes with some example applications, which can be viewed on [Github][Github].
-//! 
+//!
 //! ## Other resources
-//! 
+//!
 //! * More information on this file format can be found [here][bvh_html].
 //! * A large library of bvh files is freely available from [CMU's motion capture database]
 //!   [CMU's motion capture database].
@@ -439,7 +439,7 @@ impl Bvh {
     /// To customise the formatting, see the [`WriteOptions`][`WriteOptions`] type.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// # use bvh_anim::bvh;
     /// # use std::io;
@@ -447,12 +447,12 @@ impl Bvh {
     /// let bvh = bvh! {
     ///     // fields unspecified
     /// };
-    /// 
+    ///
     /// let mut out_file = File::create("./out_file.bvh")?;
     /// bvh.write_to(&mut out_file)?;
     /// # Result::<(), io::Error>::Ok(())
     /// ```
-    /// 
+    ///
     /// [`WriteOptions`]: write/struct.WriteOptions.html
     #[inline]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -598,8 +598,8 @@ impl Bvh {
                     .ok_or(SetMotionError::BadChannel(channel))
             })?;
 
-            *m = new_motion;
-            Ok(())
+        *m = new_motion;
+        Ok(())
     }
 
     /// Get the number of frames in the `Bvh`.
@@ -823,7 +823,7 @@ impl ChannelType {
             ChannelType::PositionX => "Xposition",
             ChannelType::PositionY => "Yposition",
             ChannelType::PositionZ => "Zposition",
-}
+        }
     }
 
     /// Returns the string representation of the `ChannelType`.
@@ -1080,7 +1080,7 @@ impl IndexMut<&Channel> for Frame {
     }
 }
 
-    const NSEC_FACTOR: f64 = 1000_000_000.0;
+const NSEC_FACTOR: f64 = 1000_000_000.0;
 
 #[inline]
 fn fraction_seconds_to_duration(x: f64) -> Duration {
