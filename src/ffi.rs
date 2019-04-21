@@ -79,8 +79,6 @@ pub struct bvh_Joint {
     pub joint_name: *mut c_char,
     /// The ordered array of channels of the `bvh_Joint`.
     pub joint_channels: *mut bvh_Channel,
-    /// _private_ The capacity of the array of channels of the `bvh_Joint`.
-    pub _joint_channels_capacity: size_t,
     /// The length of the `joint_channels` array.
     pub joint_num_channels: size_t,
     /// The index of the parent `bvh_Joint` in the `bvh_BvhFile::bvh_joints`
@@ -143,8 +141,6 @@ pub struct bvh_BvhFile {
     pub bvh_joints: *mut bvh_Joint,
     /// The length of the array of joints of the bvh.
     pub bvh_num_joints: size_t,
-    /// _private_ The capacity of the array of joints of the bvh.
-    pub _bvh_joints_capacity: size_t,
     /// The number of frames in the bvh file.
     pub bvh_num_frames: size_t,
     /// The number of channels in the bvh file.
@@ -152,8 +148,6 @@ pub struct bvh_BvhFile {
     /// The array of motion data in the bvh file. This has a total
     /// size of `bvh_num_frames * bvh_num_channels`.
     pub bvh_motion_data: *mut c_float,
-    /// _private_ The capacity of the array of motion data of the bvh.
-    pub _bvh_motion_data_capacity: size_t,
     /// The time of each frame of the bvh file in seconds.
     pub bvh_frame_time: c_double,
 }
@@ -162,7 +156,10 @@ impl fmt::Debug for bvh_BvhFile {
     #[inline]
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
         let joints = ptr_to_array(self.bvh_joints, self.bvh_num_joints);
-        let motion_data = ptr_to_array(self.bvh_motion_data, self.bvh_num_frames * self.bvh_num_channels);
+        let motion_data = ptr_to_array(
+            self.bvh_motion_data,
+            self.bvh_num_frames * self.bvh_num_channels,
+        );
 
         fmtr.debug_struct("bvh_BvhFile")
             .field("bvh_joints", &joints)
@@ -254,30 +251,24 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) {
 
         let joint = &mut *bvh_file.bvh_joints.offset(offset);
         let name = CString::from_raw(joint.joint_name);
-        let channels = Vec::from_raw_parts(
+        let channels = Box::from_raw(slice::from_raw_parts_mut(
             joint.joint_channels,
             joint.joint_num_channels,
-            joint._joint_channels_capacity,
-        );
+        ) as *mut _);
 
         drop(name);
         drop(channels);
     }
 
-    let joints = Vec::from_raw_parts(
-        bvh_file.bvh_joints,
-        num_joints,
-        bvh_file._bvh_joints_capacity,
-    );
+    let joints = Box::from_raw(slice::from_raw_parts_mut(bvh_file.bvh_joints, num_joints));
 
     drop(joints);
 
     let num_motion_values = bvh_file.bvh_num_channels * bvh_file.bvh_num_frames;
-    let data = Vec::from_raw_parts(
+    let data = Box::from_raw(slice::from_raw_parts_mut(
         bvh_file.bvh_motion_data,
         num_motion_values,
-        bvh_file._bvh_motion_data_capacity,
-    );
+    ));
 
     drop(data);
 }
@@ -311,7 +302,7 @@ pub unsafe extern "C" fn bvh_to_string(
 /// will return `NULL`.
 ///
 /// Indexing the returned array with a value greater than
-/// `bvh_file::bvh_num_channels` is an out of bounds index.
+/// `bvh_file::bvh_num_channels` is an out of bounds error.
 #[no_mangle]
 pub unsafe extern "C" fn bvh_get_frame(
     bvh_file: *mut bvh_BvhFile,
@@ -427,26 +418,21 @@ impl Bvh {
     pub unsafe fn from_ffi(bvh: bvh_BvhFile) -> Result<Self, ()> {
         // @TODO(burtonageo): Massive error checking/consistency checking required here
         let joints = if bvh.bvh_num_joints == 0 {
-            if bvh._bvh_joints_capacity > 0 {
-                let joints = Vec::from_raw_parts(bvh.bvh_joints, 0, bvh._bvh_joints_capacity);
-                drop(joints);
-            }
             Vec::new()
         } else {
             let mut out_joints = Vec::with_capacity(bvh.bvh_num_joints);
             {
                 let ffi_root = &*bvh.bvh_joints.offset(0);
 
-                let channels = Vec::from_raw_parts(
+                let channels = Box::from_raw(slice::from_raw_parts_mut(
                     ffi_root.joint_channels,
                     ffi_root.joint_num_channels,
-                    ffi_root._joint_channels_capacity,
-                );
+                ));
 
                 let root = JointData::Root {
                     name: CString::from_raw(ffi_root.joint_name).into(),
                     offset: ffi_root.joint_offset.into(),
-                    channels: channels.into_iter().map(Into::into).collect(),
+                    channels: Vec::from(channels).into_iter().map(Into::into).collect(),
                 };
 
                 out_joints.push(root);
@@ -459,16 +445,15 @@ impl Bvh {
                 };
                 let ffi_joint = &*bvh.bvh_joints.offset(signed_i);
 
-                let channels = Vec::from_raw_parts(
+                let channels = Box::from_raw(slice::from_raw_parts_mut(
                     ffi_joint.joint_channels,
                     ffi_joint.joint_num_channels,
-                    ffi_joint._joint_channels_capacity,
-                );
+                ));
 
                 let joint = JointData::Child {
                     name: CString::from_raw(ffi_joint.joint_name).into(),
                     offset: ffi_joint.joint_offset.into(),
-                    channels: channels.into_iter().map(Into::into).collect(),
+                    channels: Vec::from(channels).into_iter().map(Into::into).collect(),
                     end_site_offset: if ffi_joint.joint_has_end_site == 1 {
                         Some(ffi_joint.joint_end_site.into())
                     } else {
@@ -487,13 +472,14 @@ impl Bvh {
             out_joints
         };
 
+        let motion_values = Box::from_raw(slice::from_raw_parts_mut(
+            bvh.bvh_motion_data,
+            bvh.bvh_num_channels * bvh.bvh_num_frames,
+        ));
+
         let out_bvh = Bvh {
             joints,
-            motion_values: Vec::from_raw_parts(
-                bvh.bvh_motion_data,
-                bvh.bvh_num_channels * bvh.bvh_num_frames,
-                bvh._bvh_motion_data_capacity,
-            ),
+            motion_values: motion_values.into(),
             num_channels: bvh.bvh_num_channels,
             num_frames: bvh.bvh_num_frames,
             frame_time: fraction_seconds_to_duration(bvh.bvh_frame_time),
@@ -517,19 +503,19 @@ impl Bvh {
         out_bvh_joints_vec.reserve_exact(self.joints.len());
 
         for joint in joints {
-            let mut channels = joint
+            let channels = joint
                 .channels()
                 .iter()
                 .map(|&c| c.into())
-                .collect::<Vec<_>>();
+                .collect::<Vec<bvh_Channel>>()
+                .into_boxed_slice();
 
             let bvh_joint = bvh_Joint {
                 joint_name: CString::new(joint.name().as_ref())
                     .map(|name| name.into_raw())
                     .unwrap_or(ptr::null_mut()),
                 joint_num_channels: channels.len(),
-                _joint_channels_capacity: channels.capacity(),
-                joint_channels: channels.as_mut_ptr(),
+                joint_channels: Box::into_raw(channels) as *mut _,
                 joint_parent_index: joint.parent_index().unwrap_or(usize::max_value()),
                 joint_depth: joint.depth(),
                 joint_offset: (*joint.offset()).into(),
@@ -537,23 +523,15 @@ impl Bvh {
                 joint_has_end_site: if joint.has_end_site() { 1 } else { 0 },
             };
 
-            mem::forget(channels);
-
             out_bvh_joints_vec.push(bvh_joint);
         }
 
-        out_bvh.bvh_joints = out_bvh_joints_vec.as_mut_ptr();
-        out_bvh._bvh_joints_capacity = out_bvh_joints_vec.capacity();
-
-        mem::forget(out_bvh_joints_vec);
+        out_bvh.bvh_joints = Box::into_raw(out_bvh_joints_vec.into_boxed_slice()) as *mut _;
 
         out_bvh.bvh_frame_time = duation_to_fractional_seconds(self.frame_time());
-        out_bvh.bvh_motion_data = self.motion_values.as_mut_ptr();
-        out_bvh._bvh_motion_data_capacity = self.motion_values.capacity();
+        out_bvh.bvh_motion_data = Box::into_raw(self.motion_values.into_boxed_slice()) as *mut _;
         out_bvh.bvh_num_channels = self.num_channels;
         out_bvh.bvh_num_frames = self.num_frames;
-
-        mem::forget(self);
 
         out_bvh
     }
@@ -572,11 +550,9 @@ impl Default for bvh_BvhFile {
         bvh_BvhFile {
             bvh_joints: ptr::null_mut(),
             bvh_num_joints: Default::default(),
-            _bvh_joints_capacity: Default::default(),
             bvh_num_frames: Default::default(),
             bvh_num_channels: Default::default(),
             bvh_motion_data: ptr::null_mut(),
-            _bvh_motion_data_capacity: Default::default(),
             bvh_frame_time: Default::default(),
         }
     }
@@ -588,7 +564,6 @@ impl Default for bvh_Joint {
         bvh_Joint {
             joint_name: ptr::null_mut(),
             joint_channels: ptr::null_mut(),
-            _joint_channels_capacity: Default::default(),
             joint_num_channels: 0,
             joint_parent_index: 0,
             joint_depth: 0,
@@ -604,9 +579,7 @@ fn ptr_to_array<'a, T>(data: *mut T, size: libc::size_t) -> &'a [T] {
     if data.is_null() {
         &[]
     } else {
-        unsafe {
-            slice::from_raw_parts(data as *const _, size)
-        }
+        unsafe { slice::from_raw_parts(data as *const _, size) }
     }
 }
 
