@@ -22,9 +22,11 @@ use mint::Vector3;
 use std::{
     convert::TryFrom,
     ffi::{CStr, CString},
+    fmt,
     io::BufReader,
     mem,
     ptr::{self, NonNull},
+    slice,
 };
 
 /// A type representing an `OFFSET` position.
@@ -71,7 +73,7 @@ pub struct bvh_Channel {
 
 /// A single joint in the `HIERARCHY` section of a `bvh_BvhFile`.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct bvh_Joint {
     /// The name of the joint.
     pub joint_name: *mut c_char,
@@ -101,9 +103,41 @@ pub struct bvh_Joint {
     pub joint_has_end_site: uint8_t,
 }
 
+impl fmt::Debug for bvh_Joint {
+    #[inline]
+    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let joint_name = unsafe { CStr::from_ptr(self.joint_name as *const _) };
+        let channels = ptr_to_array(self.joint_channels, self.joint_num_channels);
+
+        let has_end_site = if self.joint_has_end_site == 0 {
+            false
+        } else {
+            true
+        };
+
+        let parent_index = if self.joint_parent_index == usize::max_value() {
+            #[derive(Debug)]
+            struct None;
+            &None as &dyn fmt::Debug
+        } else {
+            &self.joint_parent_index as &dyn fmt::Debug
+        };
+
+        fmtr.debug_struct("bvh_Joint")
+            .field("joint_name", &joint_name)
+            .field("joint_channels", &channels)
+            .field("joint_parent_index", &parent_index)
+            .field("joint_depth", &self.joint_depth)
+            .field("joint_offset", &self.joint_offset)
+            .field("joint_end_site", &self.joint_end_site)
+            .field("joint_has_end_site", &has_end_site)
+            .finish()
+    }
+}
+
 /// A struct representing a bvh file.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct bvh_BvhFile {
     /// The array of joints of the bvh.
     pub bvh_joints: *mut bvh_Joint,
@@ -122,6 +156,22 @@ pub struct bvh_BvhFile {
     pub _bvh_motion_data_capacity: size_t,
     /// The time of each frame of the bvh file in seconds.
     pub bvh_frame_time: c_double,
+}
+
+impl fmt::Debug for bvh_BvhFile {
+    #[inline]
+    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let joints = ptr_to_array(self.bvh_joints, self.bvh_num_joints);
+        let motion_data = ptr_to_array(self.bvh_motion_data, self.bvh_num_frames * self.bvh_num_channels);
+
+        fmtr.debug_struct("bvh_BvhFile")
+            .field("bvh_joints", &joints)
+            .field("bvh_num_frames", &self.bvh_num_frames)
+            .field("bvh_num_channels", &self.bvh_num_channels)
+            .field("bvh_motion_data", &motion_data)
+            .field("bvh_frame_time", &self.bvh_frame_time)
+            .finish()
+    }
 }
 
 /// Read the contents of `bvh_file`, and write the data to `out_bvh`.
@@ -545,6 +595,17 @@ impl Default for bvh_Joint {
             joint_offset: Default::default(),
             joint_end_site: Default::default(),
             joint_has_end_site: 0,
+        }
+    }
+}
+
+#[inline]
+fn ptr_to_array<'a, T>(data: *mut T, size: libc::size_t) -> &'a [T] {
+    if data.is_null() {
+        &[]
+    } else {
+        unsafe {
+            slice::from_raw_parts(data as *const _, size)
         }
     }
 }
