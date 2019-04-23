@@ -11,6 +11,7 @@ keywords = ["bvh", "biovision", "parser", "animation", "skeletal"]
 categories = ["rendering::data-formats"]
 license = "MIT"
 build = "build.rs"
+exclude = ["fuzz", "data"]
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
