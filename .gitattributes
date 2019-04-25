@@ -1,0 +1,2 @@
+# Force native line endings for bvh files (required for tests)
+*.bvh text eol=auto
