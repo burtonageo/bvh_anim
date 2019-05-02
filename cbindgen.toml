@@ -94,6 +94,5 @@ must_use = "BVH_WARN_UNUSED"
 prefix = "BVH_DLL_PUBLIC BVH_C_API"
 
 [export]
-include = ["BVH_ALLOCATOR_DEFAULT"]
 # Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
 exclude = ["NSEC_FACTOR"]

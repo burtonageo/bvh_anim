@@ -59,7 +59,7 @@ fn ffi_convert() {
 
 #[test]
 fn ffi_load_from_cfile() {
-    use bvh_anim::ffi::{bvh_BvhFile, bvh_read};
+    use bvh_anim::ffi::{bvh_BvhFile, bvh_read, BVH_ALLOCATOR_DEFAULT};
     use libc;
     use std::{ffi::CStr, ptr};
 
@@ -97,7 +97,7 @@ fn ffi_load_from_cfile() {
         assert_ne!(file, ptr::null_mut());
 
         let mut bvh = bvh_BvhFile::default();
-        let result = bvh_read(file, &mut bvh, Default::default(), Default::default());
+        let result = bvh_read(file, &mut bvh, BVH_ALLOCATOR_DEFAULT, BVH_ALLOCATOR_DEFAULT);
         libc::fclose(file);
 
         assert_ne!(result, 0);

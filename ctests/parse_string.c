@@ -9,10 +9,8 @@ int main(int argc, const char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    static const struct bvh_AllocCallbacks ALLOCATOR_DEFAULT = {0};
-
     struct bvh_BvhFile bvh;
-    if (!bvh_read(f, &bvh, ALLOCATOR_DEFAULT, ALLOCATOR_DEFAULT)) {
+    if (!bvh_read(f, &bvh, BVH_ALLOCATOR_DEFAULT, BVH_ALLOCATOR_DEFAULT)) {
         fclose(f);
         return EXIT_FAILURE;
     }

@@ -49,22 +49,26 @@ pub type bvh_FreeFunction =
 /// This library may make additional transient allocations outside of
 /// any specific allocator parameters.
 ///
-/// If the fields are set to `NULL`, then methods will use the rust allocator.
+/// If you don't need a custom allocator, use the `BVH_ALLOCATOR_DEFAULT`
+/// allocator, which will fall back to the system allocator.
+///
+/// If either of the member functions are `NULL`, then functions which use
+/// the allocator will unconditionally fail.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct bvh_AllocCallbacks {
-    // Note that the function types must be copied here due to
-    // https://github.com/eqrion/cbindgen/issues/326
     /// The `alloc` function.
     pub alloc_cbk: bvh_AllocFunction,
     /// The `free` function.
     pub free_cbk: bvh_FreeFunction,
 }
 
-/// The default allocator, which will fall back to the `rust` allocator.
-pub const BVH_ALLOCATOR_DEFAULT: bvh_AllocCallbacks = bvh_AllocCallbacks {
-    alloc_cbk: None,
-    free_cbk: None,
+/// The default allocator, which uses the rust allocator (which is the
+/// system allocator by default).
+#[no_mangle]
+pub static BVH_ALLOCATOR_DEFAULT: bvh_AllocCallbacks = bvh_AllocCallbacks {
+    alloc_cbk: Some(rust_alloc as unsafe extern "C" fn(size: size_t, align: size_t) -> *mut c_void),
+    free_cbk: Some(rust_free as unsafe extern "C" fn(ptr: *mut c_void, size: size_t, align: size_t)),
 };
 
 #[allow(unused)]
@@ -83,10 +87,9 @@ impl bvh_AllocCallbacks {
         }
     }
 
-    /// Validates that none of the pointers are valid.
+    /// Validates that all of the contained function pointers are valid.
     ///
     /// * If both members are not `null`, returns the struct unchanged.
-    /// * If both are `null`, then this returns the rust allocator.
     /// * Otherwise, returns an `err`.
     fn validate(self) -> Result<Self, InvalidAllocator> {
         let bvh_AllocCallbacks {
@@ -95,7 +98,6 @@ impl bvh_AllocCallbacks {
         } = self;
         match (alloc_cbk, free_cbk) {
             (Some(_), Some(_)) => Ok(self),
-            (None, None) => Ok(Default::default()),
             _ => Err(InvalidAllocator { _priv: () }),
         }
     }
@@ -167,6 +169,7 @@ impl bvh_AllocCallbacks {
         }
     }
 
+    /// Convert a `char*` c-string to a `JointName`.
     #[inline]
     unsafe fn cstring_to_joint_name(&self, cstr: *mut c_char) -> JointName {
         if self.validate().is_err() || cstr.is_null() {
@@ -182,6 +185,7 @@ impl bvh_AllocCallbacks {
         }
     }
 
+    /// Converts a `JointName` to a c string.
     #[inline]
     unsafe fn joint_name_to_cstring(&self, name: &BStr) -> *mut c_char {
         if self.validate().is_err() {
@@ -208,7 +212,7 @@ impl bvh_AllocCallbacks {
         self.free_n(ptr, 1);
     }
 
-    /// Wrapper function to call the free callback.
+    /// Wrapper function to call the free callback for an array allocation.
     #[inline]
     unsafe fn free_n<T>(&self, ptr: *mut T, n: usize) {
         if let Some(free_cbk) = self.free_cbk {
@@ -221,10 +225,7 @@ impl bvh_AllocCallbacks {
 impl Default for bvh_AllocCallbacks {
     #[inline]
     fn default() -> Self {
-        bvh_AllocCallbacks::new(
-            Some(rust_alloc as unsafe extern "C" fn(size: size_t, align: size_t) -> *mut c_void),
-            Some(rust_free as unsafe extern "C" fn(ptr: *mut c_void, size: size_t, align: size_t)),
-        )
+        BVH_ALLOCATOR_DEFAULT
     }
 }
 
