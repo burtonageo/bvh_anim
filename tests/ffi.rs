@@ -97,12 +97,16 @@ fn ffi_load_from_cfile() {
         assert_ne!(file, ptr::null_mut());
 
         let mut bvh = bvh_BvhFile::default();
-        let result = bvh_read(file, &mut bvh);
+        let result = bvh_read(file, &mut bvh, Default::default(), Default::default());
         libc::fclose(file);
 
-        assert_eq!(result, 0);
+        assert_ne!(result, 0);
 
         let bvh = Bvh::from_ffi(bvh).unwrap();
         assert_eq!(bvh, expected_bvh);
     }
+}
+
+#[test]
+fn custom_allocators() {
 }

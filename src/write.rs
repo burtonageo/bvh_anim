@@ -487,8 +487,8 @@ impl LineTerminator {
     #[inline]
     pub fn as_escaped_str(&self) -> &str {
         match *self {
-            LineTerminator::Unix => "\\n",
-            LineTerminator::Windows => "\\r\\n",
+            LineTerminator::Unix => r"\n",
+            LineTerminator::Windows => r"\r\n",
         }
     }
 

@@ -1,10 +1,8 @@
 include_guard = "BVH_ANIM_H"
-language = "C"
 tab_width = 4
+language = "C"
 style = "Tag"
 documentation_style = "Doxy"
-sys_includes = ["stdio.h"]
-autogen_warning = "/* This file has been automatically generated - do not edit it manually. */"
 header = """
 /*
  *
@@ -34,10 +32,68 @@ header = """
  */
 """
 
-[export]
-# Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
-exclude = ["NSEC_FACTOR"]
-include = ["BVH_JOINT_PARENT_INDEX_NONE"]
+autogen_warning = """
+/* This file has been automatically generated - do not edit it manually. */
+
+#if defined(__cplusplus)
+#define BVH_C_API extern "C"
+#else
+#define BVH_C_API extern
+#endif // defined(__cplusplus)
+
+#if defined(_WIN32)
+    #if defined(__CYGWIN__)
+        #ifndef __has_attribute
+            #define __has_attribute(x) 0
+        #endif
+
+        #if __has_attribute(warn_unused_result)
+            #define BVH_WARN_UNUSED __attribute__((warn_unused_result))
+        #else
+            #define BVH_WARN_UNUSED
+        #endif
+
+        #if __has_attribute((dllimport))
+            #define BVH_DLL_PUBLIC __attribute__((dllimport))
+        #else
+            #define BVH_DLL_PUBLIC
+        #endif
+    #elif defined(_MSC_VER)
+        #if (_MSC_VER >= 1700)
+            #define BVH_WARN_UNUSED _Check_return_
+        #else
+            #define BVH_WARN_UNUSED
+        #endif
+
+        #define BVH_DLL_PUBLIC __declspec(dllimport)
+    #else
+        #define BVH_WARN_UNUSED
+        #define BVH_DLL_PUBLIC
+    #endif
+#else
+    #ifndef __has_attribute
+        #define __has_attribute(x) 0
+    #endif
+
+    #if __has_attribute(warn_unused_result)
+        #define BVH_WARN_UNUSED __attribute__((warn_unused_result))
+    #else
+        #define BVH_WARN_UNUSED
+    #endif
+
+    #if __has_attribute(visibility)
+        #define BVH_DLL_PUBLIC __attribute__((visibility ("default")))
+    #else
+        #define BVH_DLL_PUBLIC
+    #endif
+#endif
+"""
 
 [fn]
-prefix = "extern \"C\""
+must_use = "BVH_WARN_UNUSED"
+prefix = "BVH_DLL_PUBLIC BVH_C_API"
+
+[export]
+include = ["BVH_ALLOCATOR_DEFAULT"]
+# Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
+exclude = ["NSEC_FACTOR"]
