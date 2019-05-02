@@ -91,4 +91,4 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 <!--
 Remember to update this when a new version is published!!!
 -->
-[docs.rs/ffi]: https://docs.rs/bvh_anim/0.3.1/bvh_anim/ffi/index.html
+[docs.rs/ffi]: https://docs.rs/bvh_anim/0.4.0/bvh_anim/ffi/index.html
