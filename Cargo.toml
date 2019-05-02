@@ -50,4 +50,5 @@ wgpu = "0.2"
 [features]
 ffi = ["cfile", "libc"]
 bindings = ["cbindgen", "ffi"]
+# This feature is utterly broken and (will) only be useful for testing
 ctests = ["bindings", "cc"]
