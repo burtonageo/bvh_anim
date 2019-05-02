@@ -162,7 +162,7 @@ impl bvh_AllocCallbacks {
         } else {
             let mut v = Vec::new();
             v.extend_from_slice(s);
-            self.free_n(ptr, n, mem::align_of::<T>());
+            self.free_n(ptr, n);
             v
         }
     }
@@ -526,23 +526,23 @@ pub unsafe extern "C" fn bvh_to_string(
     if bvh_file.is_null() {
         return 1;
     }
-    
+
     let bvh = match Bvh::from_ffi(*bvh_file) {
         Ok(bvh) => bvh,
         Err(_) => return 1,
     };
-    
+
     let string = bvh.to_bstring();
     *bvh_file = bvh.into_ffi();
     let out_buf_len = string.len() + 1;
-    
+
     *out_buffer = (out_buffer_allocator(out_buf_len, mem::align_of::<u8>()) as *mut _);
     let out_buffer = *out_buffer;
-    
+
     if out_buffer.is_null() {
         return 1;
     }
-    
+
     unsafe {
         ptr::write_bytes(out_buffer, 0u8, out_buf_len);
         ptr::copy_nonoverlapping(string.as_ptr(), out_buffer as *mut _, out_buf_len);
