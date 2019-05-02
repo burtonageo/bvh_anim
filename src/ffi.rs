@@ -840,7 +840,7 @@ impl Bvh {
 ///
 /// [`bvh_AllocCallbacks::validate`]: ffi/struct.bvh_AllocCallbacks.html#method.validate
 #[derive(Debug)]
-pub struct InvalidAllocator {
+struct InvalidAllocator {
     _priv: (),
 }
 
