@@ -12,7 +12,7 @@ To get started, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bvh_anim = "0.2"
+bvh_anim = "0.4"
 ```
 
 And then, you can import the library using the `use bvh_anim::*;` statement
