@@ -4,4 +4,8 @@ rust:
   - beta
   - nightly
 script:
-  - cargo test --all ; cargo test --release --all
+  - cargo test
+  - cargo test --release
+  - cargo test --features ffi --all ;
+  - cargo test --features ffi --release --all ;
+  - cargo test --features bindings --all ;
