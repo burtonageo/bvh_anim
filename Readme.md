@@ -45,7 +45,8 @@ see the documentation on [docs.rs](https://docs.rs/bvh_anim).
 ## Features
 
 This crate has a small ffi module which allows you to parse `bvh` files
-from `C` code. The `ffi` module can be enabled with the `ffi` feature.
+from `C` code. The `ffi` module can be enabled with the `ffi` feature,
+and you can read the docs for it on [`docs.rs`][docs.rs/ffi].
 
 In addition, the `bindings` feature can be enabled to generate the `C`
 bindings using `cbindgen`. The bindings header is written to either
@@ -87,3 +88,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 [docs.rs]: https://docs.rs/bvh_anim
 [crates.io]: https://crates.io/crates/bvh_anim
 [License]: https://img.shields.io/crates/l/bvh_anim.svg
+<!--
+Remember to update this when a new version is published!!!
+-->
+[docs.rs/ffi]: https://docs.rs/bvh_anim/0.3.1/bvh_anim/ffi/index.html
