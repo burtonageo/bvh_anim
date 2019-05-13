@@ -20,6 +20,7 @@ use crate::{
 };
 use libc::{c_char, c_double, c_float, c_int, c_void, size_t, uint8_t, FILE, strlen};
 use mint::Vector3;
+use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 use std::{
     alloc::{self, Layout},
     convert::TryFrom,
@@ -386,6 +387,28 @@ impl fmt::Debug for bvh_BvhFile {
             .field("bvh_motion_data", &motion_data)
             .field("bvh_frame_time", &self.bvh_frame_time)
             .finish()
+    }
+}
+
+/// Get the version of the linked `bvh` library.
+///
+/// If any parameters are `NULL`, then they will be ignored.
+#[no_mangle]
+pub unsafe extern "C" fn bvh_get_version(
+    major: *mut uint32_t,
+    minor: *mut uint32_t,
+    patch: *mut uint32_t,
+) {
+    if !major.is_null() {
+        *major = pkg_version_major!();
+    }
+
+    if !minor.is_null() {
+        *minor = pkg_version_minor!();
+    }
+
+    if !patch.is_null() {
+        *patch = pkg_version_patch!();
     }
 }
 

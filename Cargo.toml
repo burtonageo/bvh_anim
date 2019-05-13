@@ -34,6 +34,10 @@ optional = true
 version = "0.4"
 optional = true
 
+[dependencies.pkg-version]
+version = "0.1.0"
+optional = true
+
 [build-dependencies.cc]
 version = "1.0"
 optional = true
@@ -48,7 +52,7 @@ winit = "0.18"
 wgpu = "0.2"
 
 [features]
-ffi = ["cfile", "libc"]
+ffi = ["cfile", "libc", "pkg-version"]
 bindings = ["cbindgen", "ffi"]
 # This feature is utterly broken and (will) only be useful for testing
 ctests = ["bindings", "cc"]
