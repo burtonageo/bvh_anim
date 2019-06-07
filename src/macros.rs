@@ -5,29 +5,29 @@ use crate::{fraction_seconds_to_duration, joint::JointData, Bvh, Channel, Channe
 macro_rules! match_channels {
     ($builder:ident; ) => {
     };
-    ($builder:ident;Xposition $($rest:ident)*) => {
-        $builder.push_channel(bvh_anim::ChannelType::PositionX);
-        bvh_anim::match_channels!($builder; $($rest)*);
+    ($builder:ident; Xposition $($rest:ident)*) => {
+        $builder.push_channel($crate::ChannelType::PositionX);
+        $crate::match_channels!($builder; $($rest)*);
     };
     ($builder:ident; Yposition $($rest:ident)*) => {
-        $builder.push_channel(bvh_anim::ChannelType::PositionY);
-        bvh_anim::match_channels!($builder; $($rest)*);
+        $builder.push_channel($crate::ChannelType::PositionY);
+        $crate::match_channels!($builder; $($rest)*);
     };
     ($builder:ident; Zposition $($rest:ident)*) => {
-        $builder.push_channel(bvh_anim::ChannelType::PositionZ);
-        bvh_anim::match_channels!($builder; $($rest)*);
+        $builder.push_channel($crate::ChannelType::PositionZ);
+        $crate::match_channels!($builder; $($rest)*);
     };
     ($builder:ident; Xrotation $($rest:ident)*) => {
-        $builder.push_channel(bvh_anim::ChannelType::RotationX);
-        bvh_anim::match_channels!($builder; $($rest)*);
+        $builder.push_channel($crate::ChannelType::RotationX);
+        $crate::match_channels!($builder; $($rest)*);
     };
     ($builder:ident; Yrotation $($rest:ident)*) => {
-        $builder.push_channel(bvh_anim::ChannelType::RotationY);
-        bvh_anim::match_channels!($builder; $($rest)*);
+        $builder.push_channel($crate::ChannelType::RotationY);
+        $crate::match_channels!($builder; $($rest)*);
     };
     ($builder:ident; Zrotation $($rest:ident)*) => {
-        $builder.push_channel(bvh_anim::ChannelType::RotationZ);
-        bvh_anim::match_channels!($builder; $($rest)*);
+        $builder.push_channel($crate::ChannelType::RotationZ);
+        $crate::match_channels!($builder; $($rest)*);
     };
     ($builder:expr; $($other:tt)*) => {
         compile_error!("Unknown tokens");
@@ -58,7 +58,7 @@ macro_rules! parse_joints_internal {
             $builder.push_joint(stringify!($joint_nm));
 
             $builder.current_depth += 1;
-            bvh_anim::parse_joints_internal!($builder ( $( $children )* ));
+            $crate::parse_joints_internal!($builder ( $( $children )* ));
             $builder.current_depth -= 1;
         )*
     };
@@ -68,8 +68,8 @@ macro_rules! parse_joints_internal {
         CHANNELS 0
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -77,9 +77,9 @@ macro_rules! parse_joints_internal {
         CHANNELS 1 $ch0:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ; $ch0);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ; $ch0);
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -87,9 +87,9 @@ macro_rules! parse_joints_internal {
         CHANNELS 2 $ch0:ident $ch1:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ; $ch0 $ch1);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ; $ch0 $ch1);
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -97,9 +97,9 @@ macro_rules! parse_joints_internal {
         CHANNELS 3 $ch0:ident $ch1:ident $ch2:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ; $ch0 $ch1 $ch2);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ; $ch0 $ch1 $ch2);
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -107,9 +107,9 @@ macro_rules! parse_joints_internal {
         CHANNELS 4 $ch0:ident $ch1:ident $ch2:ident $ch3:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ; $ch0 $ch1 $ch2 $ch3);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        bvh_anim$crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        bvh_anim$crate::match_channels!($builder ; $ch0 $ch1 $ch2 $ch3);
+        bvh_anim$crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -138,10 +138,10 @@ macro_rules! parse_joints_internal {
             $ch5:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ;
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -155,10 +155,10 @@ macro_rules! parse_joints_internal {
             $ch6:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ;
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5 $ch6);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -174,10 +174,10 @@ macro_rules! parse_joints_internal {
             $ch7:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ;
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5 $ch6 $ch7);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -194,10 +194,10 @@ macro_rules! parse_joints_internal {
             $ch8:ident
         $($rest:tt)*
     )) => {
-        bvh_anim::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
-        bvh_anim::match_channels!($builder ;
+        $crate::parse_offset!($builder ($ofst_x $ofst_y $ofst_z));
+        $crate::match_channels!($builder ;
             $ch0 $ch1 $ch2 $ch3 $ch4 $ch5 $ch6 $ch7 $ch8);
-        bvh_anim::parse_joints_internal!($builder ( $($rest)* ));
+        $crate::parse_joints_internal!($builder ( $($rest)* ));
     };
 
     ($builder:ident (
@@ -303,14 +303,14 @@ macro_rules! parse_joints_internal {
 #[macro_export]
 macro_rules! bvh {
     () => {
-        bvh_anim::Bvh::default()
+        $crate::Bvh::default()
     };
 
     (
         HIERARCHY
         MOTION
     ) => {
-        bvh_anim::Bvh::default()
+        $crate::Bvh::default()
     };
 
     (
@@ -318,7 +318,7 @@ macro_rules! bvh {
         MOTION
         Frames: 0
     ) => {
-        bvh_anim::Bvh::default()
+        $crate::Bvh::default()
     };
 
     (
@@ -328,7 +328,7 @@ macro_rules! bvh {
         Frame Time: $frame_time:literal
     ) => {
         {
-            let mut bvh = bvh_anim::Bvh::default();
+            let mut bvh = $crate::Bvh::default();
             bvh.set_frame_time(f64::from($frame_time));
             bvh
         }
@@ -345,9 +345,9 @@ macro_rules! bvh {
         Frame Time: $frame_time:literal
     ) => {
         {
-            use bvh_anim::parse_joints_internal;
+            use $crate::parse_joints_internal;
 
-            let mut builder = bvh_anim::BvhLiteralBuilder::default();
+            let mut builder = $crate::BvhLiteralBuilder::default();
             builder.push_root(stringify!($root_name));
 
             builder.current_depth += 1;
@@ -375,9 +375,9 @@ macro_rules! bvh {
         )+
     ) => {
         {
-            use bvh_anim::parse_joints_internal;
+            use $crate::parse_joints_internal;
 
-            let mut builder = bvh_anim::BvhLiteralBuilder::default();
+            let mut builder = $crate::BvhLiteralBuilder::default();
 
             builder.push_root(stringify!($root_name));
 
@@ -513,7 +513,6 @@ impl BvhLiteralBuilder {
 #[cfg(test)]
 mod tests {
     // Needed for macros
-    use crate as bvh_anim;
     use std::time::Duration;
 
     #[test]
@@ -542,7 +541,7 @@ mod tests {
         };
 
         {
-            use bvh_anim::{ChannelType, JointData};
+            use super::{ChannelType, JointData};
             use mint::Vector3;
 
             fn check_joint<V0: Into<Vector3<f32>>, V1: Into<Vector3<f32>>, O: Into<Option<V1>>>(
