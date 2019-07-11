@@ -420,7 +420,10 @@ impl Bvh {
 
     /// Loads the `Bvh` from the `reader`.
     pub fn from_reader<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
-        let reader: &mut dyn BufReadExt = reader.by_ref();
+        Self::from_reader_(reader.by_ref())
+    }
+
+    fn from_reader_(reader: &mut dyn BufReadExt) -> Result<Self, LoadError> {
         let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
         let mut bvh = Bvh::default();
