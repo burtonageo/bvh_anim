@@ -16,9 +16,9 @@ use bstr::BStr;
 use cfile::CFile;
 use crate::{
     duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic,
-    joint::{JointPrivateData}, Bvh, Channel, ChannelType, JointData, JointName,
+    joint::JointPrivateData, Bvh, Channel, ChannelType, JointData, JointName,
 };
-use libc::{c_char, c_double, c_float, c_int, c_void, size_t, uint8_t, FILE, strlen};
+use libc::{c_char, c_double, c_float, c_int, c_void, size_t, strlen, uint32_t, uint8_t, FILE};
 use mint::Vector3;
 use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 use std::{
@@ -69,7 +69,9 @@ pub struct bvh_AllocCallbacks {
 #[no_mangle]
 pub static BVH_ALLOCATOR_DEFAULT: bvh_AllocCallbacks = bvh_AllocCallbacks {
     alloc_cbk: Some(rust_alloc as unsafe extern "C" fn(size: size_t, align: size_t) -> *mut c_void),
-    free_cbk: Some(rust_free as unsafe extern "C" fn(ptr: *mut c_void, size: size_t, align: size_t)),
+    free_cbk: Some(
+        rust_free as unsafe extern "C" fn(ptr: *mut c_void, size: size_t, align: size_t),
+    ),
 };
 
 #[allow(unused)]
@@ -290,8 +292,6 @@ pub struct bvh_Channel {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct bvh_Joint {
-    /// The allocator callbacks used to allocate the data for the `bvh_Joint`.
-    pub joint_alloc_callbacks: bvh_AllocCallbacks,
     /// The name of the joint.
     pub joint_name: *mut c_char,
     /// The ordered array of channels of the `bvh_Joint`.
@@ -354,8 +354,6 @@ impl fmt::Debug for bvh_Joint {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct bvh_BvhFile {
-    /// The allocator callbacks used to allocate the data for the `bvh_BvhFile`.
-    pub bvh_alloc_callbacks: bvh_AllocCallbacks,
     /// The array of joints of the bvh.
     pub bvh_joints: *mut bvh_Joint,
     /// The length of the array of joints of the bvh.
@@ -412,7 +410,8 @@ pub unsafe extern "C" fn bvh_get_version(
     }
 }
 
-/// Read the contents of `bvh_file`, and write the data to `out_bvh`.
+/// Read the contents of `bvh_file`, and write the data to `out_bvh`,
+/// using the default allocator.
 ///
 /// * On success, this function returns a value greater than `0`, and
 ///   `out_bvh` will be in a valid state.
@@ -421,16 +420,44 @@ pub unsafe extern "C" fn bvh_get_version(
 ///   be modified.
 ///
 /// This function will not close `bvh_file`.
-#[allow(unused)]
 #[no_mangle]
 #[must_use]
-pub unsafe extern "C" fn bvh_read(
+pub unsafe extern "C" fn bvh_read(bvh_file: *mut FILE, out_bvh: *mut bvh_BvhFile) -> c_int {
+    bvh_read_with_allocator(
+        bvh_file,
+        out_bvh,
+        &BVH_ALLOCATOR_DEFAULT,
+        &BVH_ALLOCATOR_DEFAULT,
+    )
+}
+
+/// Read the contents of `bvh_file`, and write the data to `out_bvh`,
+/// using the provided allocator parameters.
+///
+/// * On success, this function returns a value greater than `0`, and
+///   `out_bvh` will be in a valid state.
+///
+/// * On failure, this function returns `0`, and `out_bvh` will not
+///   be modified.
+///
+/// This function will not close `bvh_file`.
+///
+/// # Notes
+///
+/// `bvh_alloc_callbacks` is responsible for allocating the `bvh_joints`
+/// and `bvh_motion` arrays in the `bvh_BvhFile`.
+///
+/// `joint_alloc_callbacks` is responsible for allocating the `joint_name`
+/// and `joint_channels` arrays in each `bvh_Joint` of the `bvh_joints`
+/// array.
+#[no_mangle]
+#[must_use]
+pub unsafe extern "C" fn bvh_read_with_allocator(
     bvh_file: *mut FILE,
     out_bvh: *mut bvh_BvhFile,
-    bvh_alloc_callbacks: bvh_AllocCallbacks,
-    joint_alloc_callbacks: bvh_AllocCallbacks,
+    bvh_alloc_callbacks: *const bvh_AllocCallbacks,
+    joint_alloc_callbacks: *const bvh_AllocCallbacks,
 ) -> c_int {
-    // @TODO(burtonageo): errors
     let cfile = match NonNull::new(bvh_file) {
         Some(f) => BufReader::new(CFile::borrowed(f)),
         None => return 0,
@@ -441,29 +468,52 @@ pub unsafe extern "C" fn bvh_read(
         Err(_) => return 0,
     };
 
-    *out_bvh = bvh.into_ffi();
-
-    1
+    match bvh.into_ffi_with_allocator(&*bvh_alloc_callbacks, &*joint_alloc_callbacks) {
+        Ok(bvh) => {
+            *out_bvh = bvh;
+            1
+        }
+        _ => 0,
+    }
 }
 
-/// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`.
+/// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`,
+/// using `BVH_ALLOCATOR_DEFAULT`.
 ///
 /// * On success, this function returns a value greater than `0`, and
 ///   `out_bvh` will be in a valid state.
 ///
 /// * On failure, this function returns `0`, and `out_bvh` will not
 ///   be modified.
-#[allow(unused)]
 #[no_mangle]
 #[must_use]
-pub unsafe extern "C" fn bvh_parse(
+pub unsafe extern "C" fn bvh_parse(bvh_string: *const c_char, out_bvh: *mut bvh_BvhFile) -> c_int {
+    bvh_parse_with_allocator(
+        bvh_string,
+        out_bvh,
+        &BVH_ALLOCATOR_DEFAULT,
+        &BVH_ALLOCATOR_DEFAULT,
+    )
+}
+
+/// Parse `bvh_string` as a bvh file, and write the data to `out_bvh`,
+/// using the provided allocator parameters.
+///
+/// * On success, this function returns a value greater than `0`, and
+///   `out_bvh` will be in a valid state.
+///
+/// * On failure, this function returns `0`, and `out_bvh` will not
+///   be modified.
+#[no_mangle]
+#[must_use]
+pub unsafe extern "C" fn bvh_parse_with_allocator(
     bvh_string: *const c_char,
     out_bvh: *mut bvh_BvhFile,
-    bvh_alloc_callbacks: bvh_AllocCallbacks,
-    joint_alloc_callbacks: bvh_AllocCallbacks,
+    bvh_alloc_callbacks: *const bvh_AllocCallbacks,
+    joint_alloc_callbacks: *const bvh_AllocCallbacks,
 ) -> c_int {
     // @TODO(burtonageo): errors
-    if out_bvh.is_null() {
+    if out_bvh.is_null() || bvh_alloc_callbacks.is_null() || joint_alloc_callbacks.is_null() {
         return 0;
     }
 
@@ -475,31 +525,56 @@ pub unsafe extern "C" fn bvh_parse(
         }
     };
 
-    *out_bvh = bvh.into_ffi();
-
-    1
+    match bvh.into_ffi_with_allocator(&*bvh_alloc_callbacks, &*joint_alloc_callbacks) {
+        Ok(bvh) => {
+            *out_bvh = bvh;
+            1
+        }
+        _ => 0,
+    }
 }
 
-/// Destroy the `bvh_BvhFile`, cleaning up all memory.
+/// Destroy the `bvh_BvhFile`, cleaning up all memory. Uses
+/// `BVH_ALLOCATOR_DEFAULT`.
 ///
 /// It is a use after free error to read any fields from the `bvh_file`
 /// or the `bvh_Joint`s it owned after this function is called on it.
 ///
 /// This function will free memory using the `bvh_AllocCallbacks`
-/// members in `bvh_BvhFile` and `bvh_Joint`.
+/// parameters provided.
 ///
 /// Returns `0` if `bvh_file` could not be deallocated, otherwise
 /// returns a value greater than `0`.
 #[no_mangle]
 #[must_use]
 pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) -> c_int {
-    if bvh_file.is_null() {
+    bvh_destroy_with_allocator(bvh_file, &BVH_ALLOCATOR_DEFAULT, &BVH_ALLOCATOR_DEFAULT)
+}
+
+/// Destroy the `bvh_BvhFile`, cleaning up all memory. This will use the
+/// allocator parameters provided to clean up memory.
+///
+/// If the file is successfully deallocated, the fields will be zeroed out.
+///
+/// This function will free memory using the `bvh_AllocCallbacks`
+/// parameters provided.
+///
+/// Returns `0` if `bvh_file` could not be deallocated, otherwise
+/// returns a value greater than `0`.
+#[no_mangle]
+#[must_use]
+pub unsafe extern "C" fn bvh_destroy_with_allocator(
+    bvh_file: *mut bvh_BvhFile,
+    bvh_alloc_callbacks: *const bvh_AllocCallbacks,
+    joint_alloc_callbacks: *const bvh_AllocCallbacks,
+) -> c_int {
+    if bvh_file.is_null() || bvh_alloc_callbacks.is_null() || joint_alloc_callbacks.is_null() {
         return 0;
     }
 
     let bvh_file = &mut *bvh_file;
 
-    if bvh_file.bvh_alloc_callbacks.validate().is_err() {
+    if (*bvh_alloc_callbacks).validate().is_err() {
         return 0;
     }
 
@@ -511,16 +586,18 @@ pub unsafe extern "C" fn bvh_destroy(bvh_file: *mut bvh_BvhFile) -> c_int {
         };
 
         let joint = &mut *bvh_file.bvh_joints.offset(offset);
-        match joint.free_data() {
+        match joint.free_data(&*joint_alloc_callbacks) {
             Ok(_) => (),
             Err(_) => return 0,
         }
     }
 
-    bvh_file.bvh_alloc_callbacks.free_n(bvh_file.bvh_joints, num_joints);
+    (*bvh_alloc_callbacks).free_n(bvh_file.bvh_joints, num_joints);
 
     let num_motion_values = bvh_file.bvh_num_channels * bvh_file.bvh_num_frames;
-    bvh_file.bvh_alloc_callbacks.free_n(bvh_file.bvh_motion_data, num_motion_values);
+    (*bvh_alloc_callbacks).free_n(bvh_file.bvh_motion_data, num_motion_values);
+
+    *bvh_file = Default::default();
 
     1
 }
@@ -583,6 +660,8 @@ pub unsafe extern "C" fn bvh_to_string(
 pub unsafe extern "C" fn bvh_duplicate(
     bvh_file: *const bvh_BvhFile,
     clone: *mut bvh_BvhFile,
+    clone_bvh_allocator: *const bvh_AllocCallbacks,
+    clone_joint_allocator: *const bvh_AllocCallbacks,
 ) -> c_int {
     1
 }
@@ -780,14 +859,25 @@ impl Bvh {
         Ok(out_bvh)
     }
 
+    #[allow(unused)]
+    unsafe fn from_ffi_with_allocator(
+        ffi: &bvh_BvhFile,
+        bvh_allocator: &bvh_AllocCallbacks,
+        joints_allocator: &bvh_AllocCallbacks,
+    ) -> Result<Self, ()> {
+        Err(())
+    }
+
     /// Converts the `Bvh` into a `ffi::bvh_BvhFile`, using the default
     /// `bvh_AllocCallback`s.
     ///
     /// # Notes
     ///
     /// This method is only present if the `ffi` feature is enabled.
+    #[inline]
     pub fn into_ffi(self) -> bvh_BvhFile {
-        self.into_ffi_with_allocator(Default::default(), Default::default()).unwrap()
+        self.into_ffi_with_allocator(&Default::default(), &Default::default())
+            .unwrap()
     }
 
     /// Converts the `Bvh` into a `ffi::bvh_BvhFile`, using the given allocator callbacks
@@ -801,8 +891,8 @@ impl Bvh {
     /// allocator, and will move the pointers over without copying them.
     pub fn into_ffi_with_allocator(
         mut self,
-        bvh_allocator: bvh_AllocCallbacks,
-        joints_allocator: bvh_AllocCallbacks,
+        bvh_allocator: &bvh_AllocCallbacks,
+        joints_allocator: &bvh_AllocCallbacks,
     ) -> Result<bvh_BvhFile, ()> {
         let (bvh_allocator, joints_allocator) =
             match (bvh_allocator.validate(), joints_allocator.validate()) {
@@ -812,7 +902,6 @@ impl Bvh {
 
         let mut out_bvh = bvh_BvhFile::default();
         out_bvh.bvh_num_joints = self.joints.len();
-        out_bvh.bvh_alloc_callbacks = bvh_allocator;
 
         let joints = mem::replace(&mut self.joints, Vec::new());
 
@@ -826,31 +915,22 @@ impl Bvh {
                     .collect::<Vec<bvh_Channel>>();
 
                 bvh_Joint {
-                    joint_name: unsafe {
-                        joints_allocator.joint_name_to_cstring(joint.name())
-                    },
+                    joint_name: unsafe { joints_allocator.joint_name_to_cstring(joint.name()) },
                     joint_num_channels: channels.len(),
-                    joint_channels: unsafe {
-                        joints_allocator.copy_vec_to_alloc(channels)
-                    },
+                    joint_channels: unsafe { joints_allocator.copy_vec_to_alloc(channels) },
                     joint_parent_index: joint.parent_index().unwrap_or(usize::max_value()),
                     joint_depth: joint.depth(),
                     joint_offset: (*joint.offset()).into(),
                     joint_end_site: joint.end_site().map(|&e| e.into()).unwrap_or_default(),
                     joint_has_end_site: if joint.has_end_site() { 1 } else { 0 },
-                    joint_alloc_callbacks: joints_allocator,
                 }
             })
             .collect::<Vec<_>>();
 
-        out_bvh.bvh_joints = unsafe {
-            bvh_allocator.copy_vec_to_alloc(out_joints)
-        };
+        out_bvh.bvh_joints = unsafe { bvh_allocator.copy_vec_to_alloc(out_joints) };
 
         out_bvh.bvh_frame_time = duation_to_fractional_seconds(self.frame_time());
-        out_bvh.bvh_motion_data = unsafe {
-            bvh_allocator.copy_vec_to_alloc(self.motion_values)
-        };
+        out_bvh.bvh_motion_data = unsafe { bvh_allocator.copy_vec_to_alloc(self.motion_values) };
         out_bvh.bvh_num_channels = self.num_channels;
         out_bvh.bvh_num_frames = self.num_frames;
 
@@ -898,7 +978,6 @@ impl Default for bvh_BvhFile {
             bvh_num_channels: Default::default(),
             bvh_motion_data: ptr::null_mut(),
             bvh_frame_time: Default::default(),
-            bvh_alloc_callbacks: Default::default(),
         }
     }
 }
@@ -915,23 +994,18 @@ impl Default for bvh_Joint {
             joint_offset: Default::default(),
             joint_end_site: Default::default(),
             joint_has_end_site: 0,
-            joint_alloc_callbacks: Default::default(),
         }
     }
 }
 
 impl bvh_Joint {
     #[inline]
-    fn free_data(&mut self) -> Result<(), InvalidAllocator> {
-        self.joint_alloc_callbacks.validate()?;
+    fn free_data(&mut self, allocator: &bvh_AllocCallbacks) -> Result<(), InvalidAllocator> {
+        allocator.validate()?;
         unsafe {
-            self.joint_alloc_callbacks.free_n(
-                self.joint_name,
-                strlen(self.joint_name) + 1);
+            allocator.free_n(self.joint_name, strlen(self.joint_name) + 1);
 
-            self.joint_alloc_callbacks.free_n(
-                self.joint_channels,
-                self.joint_num_channels);
+            allocator.free_n(self.joint_channels, self.joint_num_channels);
         }
         Ok(())
     }
@@ -948,12 +1022,9 @@ fn ptr_to_array<'a, T>(data: *mut T, size: libc::size_t) -> &'a [T] {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        self as bvh_anim,
-        ffi::{
-            bvh_AllocCallbacks, bvh_BvhFile, bvh_ChannelType, bvh_Offset, bvh_destroy,
-            bvh_get_frame, bvh_parse,
-        },
+    use crate::ffi::{
+        bvh_AllocCallbacks, bvh_BvhFile, bvh_ChannelType, bvh_Offset, bvh_destroy, bvh_get_frame,
+        bvh_parse,
     };
     use libc::strcmp;
     use std::ffi::CStr;
@@ -1108,12 +1179,7 @@ mod tests {
         let mut bvh_ffi = bvh_BvhFile::default();
 
         unsafe {
-            let result = bvh_parse(
-                bvh_c_str.as_ptr(),
-                &mut bvh_ffi,
-                Default::default(),
-                Default::default(),
-            );
+            let result = bvh_parse(bvh_c_str.as_ptr(), &mut bvh_ffi);
             assert_ne!(result, 0);
         }
 
