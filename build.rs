@@ -48,11 +48,10 @@ mod error {
             match *self {
                 Error::Bindgen(ref e) => fmt::Display::fmt(e, f),
                 #[cfg(feature = "ctests")]
-                Error::Cc(_)  => f.write_str(error::Error::description(self)),
+                Error::Cc(_) => f.write_str(error::Error::description(self)),
                 Error::Unspecified => f.write_str(error::Error::description(self)),
                 Error::Io(ref e) => fmt::Display::fmt(e, f),
                 Error::Env(ref e) => fmt::Display::fmt(e, f),
-
             }
         }
     }
@@ -129,7 +128,7 @@ fn main() -> Result<(), error::Error> {
     #[cfg(feature = "ctests")]
     fn build_and_run_ctests() -> Result<(), error::Error> {
         use cc::Build;
-        use std::{io, fs};
+        use std::{fs, io};
 
         let crate_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
