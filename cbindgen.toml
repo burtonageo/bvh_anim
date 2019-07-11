@@ -87,11 +87,15 @@ autogen_warning = """
         #define BVH_DLL_PUBLIC
     #endif
 #endif
+
+#if defined(_MSC_VER)
+    #include <sal.h>
+#endif
 """
 
 [fn]
 must_use = "BVH_WARN_UNUSED"
-prefix = "BVH_DLL_PUBLIC BVH_C_API"
+prefix = "BVH_C_API BVH_DLL_PUBLIC"
 
 [export]
 # Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
