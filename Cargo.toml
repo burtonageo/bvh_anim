@@ -24,6 +24,7 @@ bstr = "0.1.2"
 lexical = "2.1"
 mint = "0.5"
 num-traits = "0.2"
+nom = "4.2"
 smallvec = "0.6"
 
 [dependencies.libc]
@@ -48,8 +49,9 @@ optional = true
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
-winit = "0.18"
-wgpu = "0.2"
+glutin = "0.21"
+gl = "0.12"
+nalgebra = "0.18.0"
 
 [features]
 ffi = ["cfile", "libc", "pkg-version"]
