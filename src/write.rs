@@ -53,7 +53,7 @@ impl WriteOptions {
 
     /// Output the `Bvh` file to the `writer` with the given options.
     pub fn write<W: Write>(&self, bvh: &Bvh, writer: &mut W) -> io::Result<()> {
-        let mut curr_chunk = BString::new();
+        let mut curr_chunk = vec![];
         let mut curr_bytes_written = 0usize;
         let mut curr_string_len = 0usize;
         let mut iter_state = WriteOptionsIterState::new();
@@ -75,15 +75,15 @@ impl WriteOptions {
 
     /// Output the `Bvh` file to the `string` with the given options.
     pub fn write_to_string(&self, bvh: &Bvh) -> BString {
-        let mut curr_chunk = BString::new();
-        let mut out_string = BString::new();
+        let mut curr_chunk = vec![];
+        let mut out_string = vec![];
         let mut iter_state = WriteOptionsIterState::new();
 
         while self.next_chunk(bvh, &mut curr_chunk, &mut iter_state) != false {
-            out_string.push(&curr_chunk);
+            out_string.extend(curr_chunk.drain(..));
         }
 
-        out_string
+        BString::from(out_string)
     }
 
     /// Sets `indent` on `self` to the new `IndentStyle`.
@@ -146,16 +146,18 @@ impl WriteOptions {
     fn next_chunk<'a, 'b: 'a>(
         &self,
         bvh: &'b Bvh,
-        chunk: &mut BString,
+        chunk: &mut Vec<u8>,
         iter_state: &'a mut WriteOptionsIterState<'b>,
     ) -> bool {
         chunk.clear();
 
+        let terminator = self.line_terminator.as_bstr().as_ref();
+
         match *iter_state {
             WriteOptionsIterState::WriteHierarchy { ref mut written } => {
                 if !*written {
-                    *chunk = BString::from("HIERARCHY");
-                    chunk.push(self.line_terminator.as_str());
+                    *chunk = b"HIERARCHY".to_vec();
+                    chunk.extend_from_slice(self.line_terminator.as_bstr().as_ref());
                     *written = true;
                 } else {
                     let mut joints = bvh.joints();
@@ -192,27 +194,27 @@ impl WriteOptions {
                         (&mut false, _, _) => {
                             // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
                             // allocation
-                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                            chunk.extend(self.indent.prefix_chars(depth));
                             if joint_data.is_root() {
-                                chunk.push(B("ROOT "));
+                                chunk.extend_from_slice(b"ROOT ");
                             } else {
-                                chunk.push(B("JOINT "));
+                                chunk.extend_from_slice(b"JOINT ");
                             }
-                            chunk.push(joint_data.name());
-                            chunk.push(self.line_terminator.as_str());
-                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
-                            chunk.push("{");
-                            chunk.push(self.line_terminator.as_str());
+                            chunk.extend_from_slice(joint_data.name().as_ref());
+                            chunk.extend_from_slice(terminator);
+                            chunk.extend(self.indent.prefix_chars(depth));
+                            chunk.push(b'{');
+                            chunk.extend_from_slice(terminator);
 
                             *wrote_name = true;
                         }
                         (&mut true, &mut false, _) => {
                             // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
                             // allocation
-                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                            chunk.extend(self.indent.prefix_chars(depth));
 
                             let Vector3 { x, y, z } = joint_data.offset();
-                            chunk.push(format!(
+                            let offset_str = format!(
                                 "OFFSET {:.*} {:.*} {:.*}",
                                 self.offset_significant_figures,
                                 x,
@@ -220,14 +222,15 @@ impl WriteOptions {
                                 y,
                                 self.offset_significant_figures,
                                 z,
-                            ));
-                            chunk.push(self.line_terminator.as_str());
+                            );
+                            chunk.extend_from_slice(offset_str.as_bytes());
+                            chunk.extend_from_slice(terminator);
                             *wrote_offset = true;
                         }
                         (&mut true, &mut true, &mut false) => {
                             // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
                             // allocation
-                            chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
+                            chunk.extend(self.indent.prefix_chars(depth));
 
                             let channels = joint_data.channels();
                             let channels_str = channels
@@ -236,23 +239,24 @@ impl WriteOptions {
                                 .collect::<SmallVec<[_; 6]>>()
                                 .join(" ");
 
-                            chunk.push(format!("CHANNELS {} {}", channels.len(), channels_str));
-                            chunk.push(self.line_terminator.as_str());
+                            let channels_str = format!("CHANNELS {} {}", channels.len(), channels_str);
+                            chunk.extend_from_slice(channels_str.as_bytes());
+                            chunk.extend_from_slice(terminator);
                             *wrote_channels = true;
                         }
                         (&mut true, &mut true, &mut true) => {
                             if let Some(end_site) = joint_data.end_site() {
                                 let Vector3 { x, y, z } = end_site;
-                                chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
-                                chunk.push("End Site");
-                                chunk.push(self.line_terminator.as_str());
+                                chunk.extend(self.indent.prefix_chars(depth));
+                                chunk.extend_from_slice(b"End Site");
+                                chunk.extend_from_slice(terminator);
 
-                                chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
-                                chunk.push("{");
-                                chunk.push(self.line_terminator.as_str());
+                                chunk.extend(self.indent.prefix_chars(depth));
+                                chunk.push(b'{');
+                                chunk.extend_from_slice(terminator);
 
-                                chunk.push(self.indent.prefix_chars(depth + 1).collect::<Vec<_>>());
-                                chunk.push(format!(
+                                chunk.extend(self.indent.prefix_chars(depth + 1));
+                                let offset_str = format!(
                                     "OFFSET {:.*} {:.*} {:.*}",
                                     self.offset_significant_figures,
                                     x,
@@ -260,12 +264,13 @@ impl WriteOptions {
                                     y,
                                     self.offset_significant_figures,
                                     z,
-                                ));
-                                chunk.push(self.line_terminator.as_str());
+                                );
+                                chunk.extend_from_slice(offset_str.as_bytes());
+                                chunk.extend_from_slice(terminator);
 
-                                chunk.push(self.indent.prefix_chars(depth).collect::<Vec<_>>());
-                                chunk.push("}");
-                                chunk.push(self.line_terminator.as_str());
+                                chunk.extend(self.indent.prefix_chars(depth));
+                                chunk.push(b'}');
+                                chunk.extend_from_slice(terminator);
 
                                 let next_joint = joints.next();
                                 let prev_joint = mem::replace(current_joint, next_joint).unwrap();
@@ -279,13 +284,9 @@ impl WriteOptions {
                                     };
 
                                 while let Some(d) = depth_difference {
-                                    chunk.push(
-                                        self.indent
-                                            .prefix_chars(curr_depth + d)
-                                            .collect::<Vec<_>>(),
-                                    );
-                                    chunk.push("}");
-                                    chunk.push(self.line_terminator.as_str());
+                                    chunk.extend(self.indent.prefix_chars(curr_depth + d));
+                                    chunk.push(b'}');
+                                    chunk.extend_from_slice(terminator);
                                     depth_difference =
                                         depth_difference.and_then(|d| d.checked_sub(1));
                                 }
@@ -302,8 +303,8 @@ impl WriteOptions {
             }
             WriteOptionsIterState::WriteMotion { ref mut written } => {
                 if !*written {
-                    *chunk = BString::from("MOTION");
-                    chunk.push(self.line_terminator.as_bstr());
+                    *chunk = b"MOTION".to_vec();
+                    chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {
                     *iter_state = WriteOptionsIterState::WriteNumFrames { written: false };
@@ -311,8 +312,8 @@ impl WriteOptions {
             }
             WriteOptionsIterState::WriteNumFrames { ref mut written } => {
                 if !*written {
-                    *chunk = BString::from(format!("Frames: {}", bvh.num_frames()));
-                    chunk.push(self.line_terminator.as_bstr());
+                    *chunk = format!("Frames: {}", bvh.num_frames()).into_bytes();
+                    chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {
                     *iter_state = WriteOptionsIterState::WriteFrameTime { written: false };
@@ -320,12 +321,12 @@ impl WriteOptions {
             }
             WriteOptionsIterState::WriteFrameTime { ref mut written } => {
                 if !*written {
-                    *chunk = BString::from(format!(
+                    *chunk = format!(
                         "Frame Time: {:.*}",
                         self.frame_time_significant_figures,
                         duation_to_fractional_seconds(bvh.frame_time())
-                    ));
-                    chunk.push(self.line_terminator.as_bstr());
+                    ).into_bytes();
+                    chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {
                     let mut frames = bvh.frames();
@@ -349,8 +350,8 @@ impl WriteOptions {
                         })
                         .collect::<Vec<_>>()
                         .join(" ");
-                    *chunk = BString::from(motion_values.as_str());
-                    chunk.push(self.line_terminator.as_bstr());
+                    *chunk = motion_values.into_bytes();
+                    chunk.extend_from_slice(terminator);
                     *current_frame = frames.next();
                 }
             },
@@ -495,13 +496,13 @@ impl LineTerminator {
     /// Return the characters of the `LineTerminator` as a `&BStr`.
     #[inline]
     pub fn as_bstr(&self) -> &BStr {
-        B(self.as_str())
+        self.as_str().as_ref()
     }
 
     /// Returns the escaped characters of the `LineTerminator` as a `&BStr`.
     #[inline]
     pub fn as_escaped_bstr(&self) -> &BStr {
-        B(self.as_escaped_str())
+        self.as_escaped_str().as_ref()
     }
 }
 

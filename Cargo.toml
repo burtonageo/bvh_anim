@@ -20,8 +20,8 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 features = ["ffi"]
 
 [dependencies]
-bstr = "0.1.2"
-lexical = "2.1"
+bstr = "0.2"
+lexical = "2.2"
 mint = "0.5"
 num-traits = "0.2"
 nom = "4.2"
@@ -32,7 +32,7 @@ version = "0.2"
 optional = true
 
 [dependencies.cfile]
-version = "0.4"
+version = "0.5"
 optional = true
 
 [dependencies.pkg-version]
@@ -44,7 +44,7 @@ version = "1.0"
 optional = true
 
 [build-dependencies.cbindgen]
-version = "0.8"
+version = "0.9"
 optional = true
 
 [dev-dependencies]

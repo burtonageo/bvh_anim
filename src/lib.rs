@@ -209,8 +209,9 @@ mod joint;
 mod parse;
 
 use bstr::{
+    ByteSlice,
     io::{BufReadExt, ByteLines},
-    BStr, BString, B,
+    BStr, BString,
 };
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
@@ -735,8 +736,8 @@ impl ChannelType {
     where
         B: AsRef<[u8]> + ?Sized,
     {
-        let s = BStr::new(s);
-        match s.as_bytes() {
+        let s = s.as_ref();
+        match s {
             b"Xrotation" => Ok(ChannelType::RotationX),
             b"Yrotation" => Ok(ChannelType::RotationY),
             b"Zrotation" => Ok(ChannelType::RotationZ),
@@ -829,7 +830,7 @@ impl ChannelType {
     /// Returns the string representation of the `ChannelType`.
     #[inline]
     pub fn as_bstr(&self) -> &'static BStr {
-        B(self.as_str())
+        <&BStr>::from(self.as_str())
     }
 }
 
