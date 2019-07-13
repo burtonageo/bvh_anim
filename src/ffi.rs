@@ -18,6 +18,7 @@ use crate::{
     duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic,
     joint::JointPrivateData, Bvh, Channel, ChannelType, JointData, JointName,
 };
+use foreign_types::ForeignType;
 use libc::{c_char, c_double, c_float, c_int, c_void, size_t, strlen, uint32_t, uint8_t, FILE};
 use mint::Vector3;
 use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
@@ -459,7 +460,7 @@ pub unsafe extern "C" fn bvh_read_with_allocator(
     joint_alloc_callbacks: *const bvh_AllocCallbacks,
 ) -> c_int {
     let cfile = match NonNull::new(bvh_file) {
-        Some(f) => BufReader::new(CFile::borrowed(f)),
+        Some(f) => BufReader::new(CFile::from_ptr(f.as_ptr())),
         None => return 0,
     };
 
