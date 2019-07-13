@@ -1,4 +1,4 @@
-use bstr::{BStr, B};
+use bstr::ByteSlice;
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
     fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines, JointData,
@@ -6,7 +6,7 @@ use crate::{
 use lexical::try_parse;
 use mint::Vector3;
 use smallvec::SmallVec;
-use std::{convert::TryFrom, mem};
+use std::{convert::TryFrom, mem, str};
 
 impl Bvh {
     // @TODO: Remove panics
@@ -126,7 +126,7 @@ impl Bvh {
                     }
                 }
                 kw if kw == ENDSITE_KEYWORDS[0] => {
-                    if tokens.next().map(BStr::as_bytes) == Some(ENDSITE_KEYWORDS[1]) {
+                    if tokens.next() == Some(ENDSITE_KEYWORDS[1]) {
                         in_end_site = true;
                     } else {
                         panic!("Unexpected end keyword");
@@ -287,15 +287,15 @@ impl Bvh {
                 let line = line.trim();
                 let mut tokens = line.fields_with(|c: char| c.is_ascii_whitespace() || c == ':');
 
-                if tokens.next().map(BStr::as_bytes) != Some(FRAMES_KEYWORD) {
+                if tokens.next() != Some(FRAMES_KEYWORD) {
                     return Err(LoadMotionError::MissingNumFrames {
                         parse_error: None,
                         line: line_num,
                     });
                 }
 
-                let parse_num_frames = |token: Option<&BStr>| {
-                    if let Some(num_frames) = token {
+                let parse_num_frames = |token: Option<&[u8]>| {
+                    if let Some(num_frames) = token.and_then(|b| str::from_utf8(b).ok()) {
                         try_parse::<usize, _>(num_frames)
                             .map_err(|e| LoadMotionError::MissingNumFrames {
                                 parse_error: Some(e),
@@ -311,7 +311,7 @@ impl Bvh {
                 };
 
                 match tokens.next() {
-                    Some(tok) if tok == B(":") => parse_num_frames(tokens.next()),
+                    Some(tok) if tok == b":" => parse_num_frames(tokens.next()),
                     Some(tok) => parse_num_frames(Some(tok)),
                     None => Err(LoadMotionError::MissingNumFrames {
                         parse_error: None,
@@ -331,7 +331,7 @@ impl Bvh {
                 let mut tokens = line.fields();
 
                 let frame_time_kw = tokens.next();
-                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(0).map(|b| *b) {
+                if frame_time_kw == FRAME_TIME_KEYWORDS.get(0).map(|b| *b) {
                     // do nothing
                 } else {
                     return Err(LoadMotionError::MissingFrameTime {
@@ -341,7 +341,7 @@ impl Bvh {
                 }
 
                 let frame_time_kw = tokens.next();
-                if frame_time_kw.map(BStr::as_bytes) == FRAME_TIME_KEYWORDS.get(1).map(|b| *b) {
+                if frame_time_kw == FRAME_TIME_KEYWORDS.get(1).map(|b| *b) {
                     // do nothing
                 } else {
                     return Err(LoadMotionError::MissingFrameTime {
@@ -350,7 +350,7 @@ impl Bvh {
                     });
                 }
 
-                let parse_frame_time = |token: Option<&BStr>| {
+                let parse_frame_time = |token: Option<&[u8]>| {
                     if let Some(frame_time) = token {
                         let frame_time_secs = try_parse::<f64, _>(frame_time).map_err(|e| {
                             LoadMotionError::MissingFrameTime {
@@ -368,7 +368,7 @@ impl Bvh {
                 };
 
                 match tokens.next() {
-                    Some(tok) if tok == B(":") => parse_frame_time(tokens.next()),
+                    Some(tok) if tok == b":" => parse_frame_time(tokens.next()),
                     Some(tok) => parse_frame_time(Some(tok)),
                     None => Err(LoadMotionError::MissingNumFrames {
                         parse_error: None,

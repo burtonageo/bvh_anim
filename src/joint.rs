@@ -1,4 +1,4 @@
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice};
 use crate::Channel;
 use mint::Vector3;
 use smallvec::SmallVec;
@@ -476,7 +476,7 @@ impl From<Vec<u8>> for JointName {
 impl From<&'_ [u8]> for JointName {
     #[inline]
     fn from(s: &'_ [u8]) -> Self {
-        From::from(BStr::new(s))
+        From::from(s.to_vec())
     }
 }
 
@@ -505,7 +505,7 @@ macro_rules! impl_as_ref {
 }
 
 impl_as_ref! {
-    BStr { ref => BStr::new, mut => BStr::new_mut }
+    BStr { ref => AsRef::<BStr>::as_ref, mut => AsMut::<BStr>::as_mut }
     [u8] { ref => AsRef::<[u8]>::as_ref, mut => AsMut::<[u8]>::as_mut }
 }
 
