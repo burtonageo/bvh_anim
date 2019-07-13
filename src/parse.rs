@@ -1,12 +1,225 @@
+#![allow(unused)]
+
 use bstr::ByteSlice;
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
     fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines, JointData,
+    JointName,
 };
-use lexical::try_parse;
+use lexical::{parse, try_parse};
 use mint::Vector3;
-use smallvec::SmallVec;
+use nom::{
+    alt, char, delimited, digit, do_parse, map, map_res, named, opt, pair, recognize, space, tag,
+    take_while, try_parse, ws, Err as NomErr, IResult,
+};
+use smallvec::{smallvec, SmallVec};
 use std::{convert::TryFrom, mem, str};
+
+named! {
+    unsigned_float(&[u8]) -> f64,
+    map!(
+        recognize!(alt!(
+            delimited!(digit, tag!("."), opt!(digit))
+                | delimited!(opt!(digit), tag!("."), digit)
+        )),
+        lexical::parse
+    )
+}
+
+named! {
+    float(&[u8]) -> f64,
+    map!(
+        pair!(
+            opt!(alt!(tag!("+") | tag!("-"))),
+            unsigned_float
+        ),
+        |(sign, value): (Option<&[u8]>, f64)| {
+            sign.and_then(|s|
+                if s[0] == (b'-') {
+                    Some(-1f64)
+                } else {
+                    None
+                })
+                .unwrap_or(1f64) * value
+        }
+    )
+}
+
+named! {
+    unsigned_int(&[u8]) -> u64,
+    map!(
+        recognize!(
+            delimited!(space, digit, space)
+        ),
+        lexical::parse
+    )
+}
+
+named! {
+    token(&[u8]) -> &[u8],
+    delimited!(
+        space,
+        take_while!(|ch| char::from(ch).is_alphanumeric()),
+        space
+    )
+}
+
+named!(single_channel(&[u8]) -> ChannelType,
+    map_res!(
+        alt!(
+            tag!("Xposition") |
+            tag!("Yposition") |
+            tag!("Zposition") |
+            tag!("Xrotation") |
+            tag!("Yrotation") |
+            tag!("Zrotation")
+        ),
+        ChannelType::from_bytes
+    )
+);
+
+named! {
+    offset(&[u8]) -> Vector3<f32>,
+    ws!(
+        do_parse!(
+            tag!(b"OFFSET") >>
+            x: float >>
+            y: float >>
+            z: float >>
+            (Vector3 { x: x as f32, y: y as f32, z: z as f32 })
+        )
+    )
+}
+
+named! {
+    end_site(&[u8]) -> Vector3<f32>,
+    ws!(
+        do_parse!(
+            tag!(b"End") >>
+            tag!(b"Site") >>
+            end_site: delimited!(char!('{'), offset, char!('}')) >>
+            (end_site)
+        )
+    )
+}
+/*
+fn heirarchy<'a>(data: &'a [u8]) -> IResult<&'a [u8], Vec<JointData>> {
+    let mut joints = Vec::new();
+    let mut num_channels = 0usize;
+    let mut joint_index = 0usize;
+
+    let mut channels = |data: &'a [u8]| -> IResult<&'a [u8], SmallVec<[Channel; 6]>> {
+        let (mut data, expected_num_channels) = do_parse!(
+            data,
+            tag!(b"CHANNELS") >> num_channels: unsigned_int >> (num_channels)
+        )?;
+
+        let mut out_channels = smallvec![];
+        for i in 0..expected_num_channels {
+            let (new_data, channel_ty) = single_channel(data)?;
+            let channel = Channel::new(channel_ty, num_channels);
+            num_channels += 1;
+            data = new_data;
+        }
+
+        Ok((&*data, out_channels))
+    };
+
+    struct JointMembers {
+        name: JointName,
+        offset: Vector3<f32>,
+        channels: SmallVec<[Channel; 6]>,
+        end_site: Option<Vector3<f32>>,
+    }
+
+    let joint_members = |mut data: &'a [u8]| -> IResult<&'a [u8], JointMembers> {
+        let (new_data, name) =
+            do_parse!(data, tag!(b"Joint") >> joint_name: token >> (joint_name))?;
+
+        let mut offset_and_channels =
+            |data: &'a [u8]| -> IResult<&'a [u8], (Vector3<f32>, SmallVec<[Channel; 6]>)> {
+                do_parse!(data, offst: offset >> chans: channels >> (offst, chans))
+            };
+
+        let opt_end_site = |data: &'a [u8]| -> IResult<&'a [u8], Option<Vector3<f32>>> {
+            match end_site(data) {
+                Ok((data, site)) => Ok((data, Some(site))),
+                Err(NomErr::Error(_)) => Ok((data, None)),
+                // @TODO: is this right?
+                Err(e) => Err(e),
+            }
+        };
+
+        let (data, members) = do_parse!(
+            data,
+            name: token
+                >> char!('{')
+                >> offst_and_chans: offset_and_channels
+                >> end_site: opt_end_site
+                >> (name, offst_and_chans.0, offst_and_chans.1, end_site)
+        )?;
+
+        let members = JointMembers {
+            name: JointName::from(members.0),
+            offset: members.1,
+            channels: members.2,
+            end_site: members.3,
+        };
+
+        Ok((data, members))
+    };
+
+    /*
+    try_parse!(data,
+        do_parse!(
+            tag!("HIERARCHY") >>
+            opt!(
+                tag!("Root") >>
+                root_joint_name: token >>
+                char!('{') >>
+                root_offset: offset >>
+                root_channels: channels >>
+                char!('}') >>
+                ()
+            ) >>
+            ()
+        )
+    );
+    */
+Ok((data, joints))
+}
+
+named! {
+frame_metadata(&[u8]) -> (std::time::Duration, usize),
+ws!(do_parse!(
+tag!("Frames") >>
+char!(':') >>
+num_frames: unsigned_int >>
+tag!("Frame") >>
+tag!("Time") >>
+char!(':') >>
+frame_time: unsigned_float >>
+(fraction_seconds_to_duration(frame_time), num_frames as usize)
+))
+}
+
+fn motion_section(
+data: &[u8],
+num_channels: usize,
+) -> IResult<&[u8], (std::time::Duration, usize, Vec<f32>)> {
+let (frame_time, num_frames) = frame_metadata(data)?;
+let motion_data = Vec::with_capacity(num_channels * num_frames);
+
+for f in 0..num_frames {
+let chomped = do_parse!(data, take_while!(|ch| char::from(ch).is_ascii_whitespace()));
+let (output, motion_val) = float(chomped);
+motion_data.push(motion_val);
+data = output;
+}
+
+Ok((data, (frame_time, num_frames, motion_data)))
+}
+*/
 
 impl Bvh {
     // @TODO: Remove panics
