@@ -239,7 +239,8 @@ impl WriteOptions {
                                 .collect::<SmallVec<[_; 6]>>()
                                 .join(" ");
 
-                            let channels_str = format!("CHANNELS {} {}", channels.len(), channels_str);
+                            let channels_str =
+                                format!("CHANNELS {} {}", channels.len(), channels_str);
                             chunk.extend_from_slice(channels_str.as_bytes());
                             chunk.extend_from_slice(terminator);
                             *wrote_channels = true;
@@ -325,7 +326,8 @@ impl WriteOptions {
                         "Frame Time: {:.*}",
                         self.frame_time_significant_figures,
                         duation_to_fractional_seconds(bvh.frame_time())
-                    ).into_bytes();
+                    )
+                    .into_bytes();
                     chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {

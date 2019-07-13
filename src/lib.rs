@@ -209,9 +209,8 @@ mod joint;
 mod parse;
 
 use bstr::{
-    ByteSlice,
     io::{BufReadExt, ByteLines},
-    BStr, BString,
+    BStr, BString, ByteSlice,
 };
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};

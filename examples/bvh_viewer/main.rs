@@ -7,10 +7,10 @@ use bvh_anim::{Bvh, JointData};
 use gl::{self, types::*};
 use glutin::{
     dpi::LogicalSize, ContextBuilder, DeviceEvent, ElementState, Event, EventsLoop, KeyboardInput,
-    VirtualKeyCode, WindowBuilder, WindowEvent, MouseButton, Touch, TouchPhase,
+    MouseButton, Touch, TouchPhase, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
-use std::time::{Duration, Instant};
 use nalgebra::{Matrix4, Point2, Point3, Vector3};
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct Timer {
@@ -73,8 +73,7 @@ impl AnimationPlayer {
         let base_mat = Matrix4::<f32>::identity();
     }
 
-    fn anim_callback(&mut self) {
-    }
+    fn anim_callback(&mut self) {}
 }
 
 #[derive(Debug, PartialEq)]
@@ -96,9 +95,7 @@ impl Bone {
         macro_rules! c {
             ($s:literal) => {
                 unsafe {
-                    ::std::ffi::CStr::from_bytes_with_nul_unchecked(
-                        concat!($s, "\0").as_bytes()
-                    )
+                    ::std::ffi::CStr::from_bytes_with_nul_unchecked(concat!($s, "\0").as_bytes())
                 }
             };
         }
@@ -140,17 +137,14 @@ impl Bone {
 
         let shader_program = 0;
 
-        let model_matrix_uniform_loc = unsafe {
-            gl::GetUniformLocation(shader_program, c!("model_matrix").as_ptr())
-        };
+        let model_matrix_uniform_loc =
+            unsafe { gl::GetUniformLocation(shader_program, c!("model_matrix").as_ptr()) };
 
-        let view_matrix_uniform_loc = unsafe {
-            gl::GetUniformLocation(shader_program, c!("view_matrix").as_ptr())
-        };
+        let view_matrix_uniform_loc =
+            unsafe { gl::GetUniformLocation(shader_program, c!("view_matrix").as_ptr()) };
 
-        let projection_matrix_uniform_loc = unsafe {
-            gl::GetUniformLocation(shader_program, c!("projection_matrix").as_ptr())
-        };
+        let projection_matrix_uniform_loc =
+            unsafe { gl::GetUniformLocation(shader_program, c!("projection_matrix").as_ptr()) };
 
         let cuboid_verts = &[
             Vector3::new(0.0, 0.0, 0.0),
@@ -158,9 +152,7 @@ impl Bone {
             Vector3::new(1.0, 1.0, 0.0),
         ];
 
-        let cuboid_inds = &[
-            0u16
-        ];
+        let cuboid_inds = &[0u16];
 
         let mut buffers = [0, 0];
         unsafe {
@@ -186,7 +178,6 @@ impl Bone {
     fn render(&self) {
         unsafe {
             gl::UseProgram(self.shader_program);
-
 
             gl::UseProgram(0);
         }
@@ -217,13 +208,13 @@ fn main() {
         .expect("Could not create OpenGL Context");
 
     let context = unsafe {
-        context.make_current().expect("Could not make the OpenGL context current")
+        context
+            .make_current()
+            .expect("Could not make the OpenGL context current")
     };
 
     unsafe {
-        gl::load_with(|s| {
-            context.get_proc_address(s) as _
-        });
+        gl::load_with(|s| context.get_proc_address(s) as _);
 
         gl::ClearColor(0.1, 0.0, 0.4, 1.0);
     }
@@ -241,30 +232,34 @@ fn main() {
         prev_time = curr_time;
 
         events_loop.poll_events(|ev| match ev {
-            Event::DeviceEvent { ref event, .. } => {
-                match event {
-                    DeviceEvent::Key(KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                        ..
-                    }) => {
-                        is_running = false;
-                    }
-                    DeviceEvent::MouseMotion { delta: (ref mx, ref my), } if is_mouse_down => {
-                        arcball.on_mouse_move(*mx as f32, *my as f32);
-                    }
-                    _ => {}
+            Event::DeviceEvent { ref event, .. } => match event {
+                DeviceEvent::Key(KeyboardInput {
+                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                    ..
+                }) => {
+                    is_running = false;
                 }
-            }
+                DeviceEvent::MouseMotion {
+                    delta: (ref mx, ref my),
+                }
+                    if is_mouse_down =>
+                {
+                    arcball.on_mouse_move(*mx as f32, *my as f32);
+                }
+                _ => {}
+            },
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                     is_running = false;
                 }
-                WindowEvent::MouseInput { ref state, button: MouseButton::Left, .. } => {
-                    match state {
-                        ElementState::Pressed => is_mouse_down = true,
-                        ElementState::Released => is_mouse_down = false,
-                    }
-                }
+                WindowEvent::MouseInput {
+                    ref state,
+                    button: MouseButton::Left,
+                    ..
+                } => match state {
+                    ElementState::Pressed => is_mouse_down = true,
+                    ElementState::Released => is_mouse_down = false,
+                },
                 WindowEvent::Touch(ref t) => {
                     match t.phase {
                         TouchPhase::Started => {
