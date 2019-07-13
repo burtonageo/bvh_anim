@@ -1,3 +1,4 @@
+use bstr::ByteSlice;
 use bvh_anim::{
     bvh,
     write::{IndentStyle, LineTerminator, WriteOptions},
@@ -6,7 +7,7 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn test_write() {
-    const BVH_STRING: &str = include_str!("../data/test_simple.bvh");
+    const BVH_STRING: &[u8] = include_bytes!("../data/test_simple.bvh");
 
     let bvh = bvh! {
         HIERARCHY

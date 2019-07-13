@@ -4,9 +4,9 @@ mod arcball_camera;
 
 use arcball_camera::ArcBall;
 use bvh_anim::{Bvh, JointData};
-use gl::types::*;
+use gl::{self, types::*};
 use glutin::{
-    dpi::LogicalSize, ContextBuilder, DeviceEvent, Event, EventsLoop, KeyboardInput,
+    dpi::LogicalSize, ContextBuilder, DeviceEvent, ElementState, Event, EventsLoop, KeyboardInput,
     VirtualKeyCode, WindowBuilder, WindowEvent, MouseButton, Touch, TouchPhase,
 };
 use std::time::{Duration, Instant};
@@ -53,9 +53,10 @@ struct AnimationPlayer {
 
 impl AnimationPlayer {
     fn new(bvh: Bvh) -> Self {
+        let frame_time = *bvh.frame_time();
         AnimationPlayer {
             bvh,
-            timer: Timer::new(bvh.frame_time()),
+            timer: Timer::new(frame_time),
             bones: vec![],
             current_frame: 0,
             does_loop: false,
@@ -69,19 +70,19 @@ impl AnimationPlayer {
     }
 
     fn calculate_joints_fk(&mut self) {
-        let base_mat = Matrix4::identity();
+        let base_mat = Matrix4::<f32>::identity();
     }
 
     fn anim_callback(&mut self) {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 struct Bone {
     position: Point3<f32>,
     direction: Vector3<f32>,
     length: f32,
-    shader_program: GLint,
+    shader_program: GLuint,
     vbo: GLint,
     vao: GLint,
     ebo: GLint,
@@ -137,16 +138,18 @@ impl Bone {
 
         "#);
 
+        let shader_program = 0;
+
         let model_matrix_uniform_loc = unsafe {
-            gl::GetUnformLocation(c!("model_matrix"))
+            gl::GetUniformLocation(shader_program, c!("model_matrix").as_ptr())
         };
 
         let view_matrix_uniform_loc = unsafe {
-            gl::GetUnformLocation(c!("view_matrix"))
+            gl::GetUniformLocation(shader_program, c!("view_matrix").as_ptr())
         };
 
         let projection_matrix_uniform_loc = unsafe {
-            gl::GetUnformLocation(c!("projection_matrix"))
+            gl::GetUniformLocation(shader_program, c!("projection_matrix").as_ptr())
         };
 
         let cuboid_verts = &[
@@ -161,7 +164,7 @@ impl Bone {
 
         let mut buffers = [0, 0];
         unsafe {
-            gl::GenBuffers(buffers.len(), buffers.as_mut_ptr() as *mut _);
+            gl::GenBuffers(buffers.len() as _, buffers.as_mut_ptr() as *mut _);
         }
 
         let [vbo, ebo] = buffers;
@@ -170,7 +173,7 @@ impl Bone {
             position,
             direction,
             length,
-            shader_program: 0,
+            shader_program,
             vbo,
             vao: 0,
             ebo,
@@ -183,6 +186,9 @@ impl Bone {
     fn render(&self) {
         unsafe {
             gl::UseProgram(self.shader_program);
+
+
+            gl::UseProgram(0);
         }
     }
 }
@@ -191,8 +197,8 @@ impl Drop for Bone {
     fn drop(&mut self) {
         unsafe {
             let mut buffers = [self.vbo, self.ebo];
-            gl::DeleteBuffers(buffers.len(), buffers.as_mut_ptr() as *mut _);
-            gl::DeleteVertexArrays(1, (&mut self.vao) as *mut _);
+            gl::DeleteBuffers(buffers.len() as _, buffers.as_mut_ptr() as *mut _);
+            gl::DeleteVertexArrays(1, (&mut self.vao) as *mut _ as *mut _);
 
             gl::UseProgram(0);
             gl::DeleteProgram(self.shader_program);
@@ -226,7 +232,7 @@ fn main() {
     let mut prev_time = Instant::now();
     let mut arcball = ArcBall::new();
     let mut is_mouse_down = false;
-    let mut prev_touch_pos = Point2::origin();
+    let mut prev_touch_pos = Point2::<f32>::origin();
     let mut loaded_skeletons: Vec<Bvh> = vec![];
 
     while is_running {
@@ -243,8 +249,8 @@ fn main() {
                     }) => {
                         is_running = false;
                     }
-                    DeviceEvent::MouseMotion { (mx, my): delta, } if is_mouse_down => {
-                        arcball.on_mouse_move(mx as f32, my as f32);
+                    DeviceEvent::MouseMotion { delta: (ref mx, ref my), } if is_mouse_down => {
+                        arcball.on_mouse_move(*mx as f32, *my as f32);
                     }
                     _ => {}
                 }

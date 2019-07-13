@@ -1,4 +1,4 @@
-use nalgebra::{Matrix4, Point3, Vector3};
+use nalgebra::{Matrix4, Point, Point2, Point3, Vector3};
 
 /// An ArcBall controller, as defined by Ken Shoemake.
 /// See http://www.talisman.org/~erlkonig/misc/shoemake92-arcball.pdf
