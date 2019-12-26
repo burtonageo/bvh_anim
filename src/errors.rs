@@ -177,7 +177,7 @@ impl fmt::Display for LoadJointsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             LoadJointsError::Io(ref e) => fmt::Display::fmt(&e, f),
-            LoadJointsError::MissingRoot => f.write_str("The root heirarchy could not be found"),
+            LoadJointsError::MissingRoot => f.write_str("The root hierarchy could not be found"),
             LoadJointsError::MissingJointName { line } => {
                 write!(f, "{}: the name is missing from the joints section", line)
             }
