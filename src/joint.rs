@@ -13,7 +13,7 @@ use std::{
 /// Internal representation of a joint.
 #[derive(Clone, Debug, PartialEq)]
 pub enum JointData {
-    /// Root of the skeletal heirarchy.
+    /// Root of the skeletal hierarchy.
     Root {
         /// Name of the root `Joint`.
         name: JointName,
@@ -334,7 +334,7 @@ impl JointData {
         }
     }
 
-    /// Get the depth of the `JointData` in the heirarchy.
+    /// Get the depth of the `JointData` in the hierarchy.
     #[inline]
     pub(crate) fn depth(&self) -> usize {
         match *self {

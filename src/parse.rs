@@ -103,7 +103,7 @@ named! {
     )
 }
 /*
-fn heirarchy<'a>(data: &'a [u8]) -> IResult<&'a [u8], Vec<JointData>> {
+fn hierarchy<'a>(data: &'a [u8]) -> IResult<&'a [u8], Vec<JointData>> {
     let mut joints = Vec::new();
     let mut num_channels = 0usize;
     let mut joint_index = 0usize;
@@ -228,7 +228,7 @@ impl Bvh {
         &mut self,
         lines: &mut EnumeratedLines<'_>,
     ) -> Result<(), LoadJointsError> {
-        const HEIRARCHY_KEYWORD: &[u8] = b"HIERARCHY";
+        const HIERARCHY_KEYWORD: &[u8] = b"HIERARCHY";
 
         const ROOT_KEYWORD: &[u8] = b"ROOT";
         const JOINT_KEYWORD: &[u8] = b"JOINT";
@@ -243,7 +243,7 @@ impl Bvh {
         #[derive(Debug, Eq, PartialEq)]
         enum ParseMode {
             NotStarted,
-            InHeirarchy,
+            InHierarchy,
             Finished,
         }
 
@@ -291,15 +291,15 @@ impl Bvh {
             };
 
             match first_token.as_bytes() {
-                HEIRARCHY_KEYWORD => {
+                HIERARCHY_KEYWORD => {
                     if curr_mode != ParseMode::NotStarted {
                         panic!("Unexpected hierarchy");
                     }
-                    curr_mode = ParseMode::InHeirarchy;
+                    curr_mode = ParseMode::InHierarchy;
                     next_expected_line = NextExpectedLine::RootName;
                 }
                 ROOT_KEYWORD => {
-                    if curr_mode != ParseMode::InHeirarchy
+                    if curr_mode != ParseMode::InHierarchy
                         || next_expected_line != NextExpectedLine::RootName
                     {
                         panic!("Unexpected root: {:?}", curr_mode);
@@ -346,7 +346,7 @@ impl Bvh {
                     }
                 }
                 JOINT_KEYWORD => {
-                    if curr_mode != ParseMode::InHeirarchy {
+                    if curr_mode != ParseMode::InHierarchy {
                         panic!("Unexpected Joint");
                     }
 
@@ -375,7 +375,7 @@ impl Bvh {
                     }
                 }
                 OFFSET_KEYWORD => {
-                    if curr_mode != ParseMode::InHeirarchy {
+                    if curr_mode != ParseMode::InHierarchy {
                         return Err(LoadJointsError::UnexpectedOffsetSection { line: line_num });
                     }
 
@@ -407,7 +407,7 @@ impl Bvh {
                     curr_joint.set_offset(offset, in_end_site);
                 }
                 CHANNELS_KEYWORD => {
-                    if curr_mode != ParseMode::InHeirarchy {
+                    if curr_mode != ParseMode::InHierarchy {
                         return Err(LoadJointsError::UnexpectedChannelsSection { line: line_num });
                     }
 

@@ -24,15 +24,15 @@
 //!
 //! ## The bvh file format
 //!
-//! The `Bvh` file format is comprised of two main sections: the 'Heirarchy' section,
+//! The `Bvh` file format is comprised of two main sections: the 'Hierarchy' section,
 //! which defines the joints of the skeleton, and the 'Motion' section, which defines
 //! the motion values for each channel.
 //!
 //! This project contains some samples in the [`data` directory][`data` directory].
 //!
-//! ### Heierarchy
+//! ### Hierarchy
 //!
-//! The 'Heirarchy' section defines the skeleton as a tree of joints, where there is
+//! The 'Hierarchy' section defines the skeleton as a tree of joints, where there is
 //! a single root joint, and a chain of child joints extending out from each joint,
 //! terminated by an 'End Site' section.
 //!
@@ -46,7 +46,7 @@
 //!   to calculate the length of the final bone in the chain.
 //!
 //! ```text
-//! HEIRARCHY
+//! HIERARCHY
 //! ROOT <Root-name>
 //! {
 //!     OFFSET <Root-offset-x> <Root-offset-y> <Root-offset-z>
