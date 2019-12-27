@@ -24,7 +24,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 let bvh_file = File::open("./path/to/anim.bvh")?;
-let bvh = bvh_anim::load(BufReader::new(bvh_file))?;
+let bvh = bvh_anim::from_reader(BufReader::new(bvh_file))?;
 
 for joint in bvh.joints() {
     println!("{:#?}", joint);
