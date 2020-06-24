@@ -617,7 +617,7 @@ mod tests {
             };
         }
 
-        let empty = bvh!{};
+        let empty = bvh! {};
         assert_empty!(empty);
 
         let empty_2 = bvh! {

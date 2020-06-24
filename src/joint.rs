@@ -1,5 +1,5 @@
-use bstr::{BStr, BString, ByteSlice};
 use crate::Channel;
+use bstr::{BStr, BString, ByteSlice};
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
@@ -15,7 +15,7 @@ use std::{
 pub enum JointData {
     /// Root of the skeletal heirarchy.
     Root {
-        /// Name of the root `Joint`.
+        /// Name of the root `Joint`.   
         name: JointName,
         /// Positional offset of this `Joint` relative to the parent.
         offset: Vector3<f32>,

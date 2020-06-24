@@ -2,8 +2,8 @@
 
 //! Contains options for `bvh` file formatting.
 
-use bstr::{BStr, BString, B};
 use crate::{duation_to_fractional_seconds, Bvh, Frame, Frames, Joint, Joints};
+use bstr::{BStr, BString, B};
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{

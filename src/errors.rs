@@ -1,7 +1,7 @@
 //! Errors which may occur when manipulating `Bvh` files.
 
-use bstr::BString;
 use crate::{Axis, Channel};
+use bstr::BString;
 use lexical::Error as LexicalError;
 use std::{error::Error as StdError, fmt, io};
 

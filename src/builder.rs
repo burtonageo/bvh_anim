@@ -2,8 +2,8 @@
 
 //! Defines a `Builder` struct used to build a `Bvh` dynamically.
 
-use bstr::BStr;
 use crate::{Bvh, Channel, ChannelType, JointName};
+use bstr::BStr;
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{fmt, time::Duration};

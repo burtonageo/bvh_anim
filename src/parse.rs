@@ -1,11 +1,11 @@
 #![allow(unused)]
 
-use bstr::ByteSlice;
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
     fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines, JointData,
     JointName,
 };
+use bstr::ByteSlice;
 use lexical::{parse, try_parse};
 use mint::Vector3;
 use nom::{
@@ -368,7 +368,7 @@ impl Bvh {
                         pushed_end_site_joint = false;
                     }
 
-                    if let Some(name) = tokens.next() {
+                    if let Some(mut name) = tokens.next() {
                         curr_joint.set_name(name);
                     } else {
                         panic!("Missing joint name!");
