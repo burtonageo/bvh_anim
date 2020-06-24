@@ -21,11 +21,11 @@ features = ["ffi"]
 
 [dependencies]
 bstr = "0.2"
-lexical = "2.2"
+lexical = "5.2"
 mint = "0.5"
 num-traits = "0.2"
 nom = "4.2"
-smallvec = "0.6"
+smallvec = "1.4"
 
 [dependencies.static_assertions]
 version = "1"
