@@ -47,19 +47,16 @@ impl<K: Into<LoadErrorKind>> From<K> for LoadError {
 impl fmt::Display for LoadError {
     #[inline]
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmtr, "{}: {}", self.description(), self.source().unwrap())
+        let desc = match self.kind {
+            LoadErrorKind::Joints(_) => "Could not load hierarchy",
+            LoadErrorKind::Motion(_) => "Could not load motion",
+        };
+
+        write!(fmtr, "{}: {}", desc, self.source().unwrap())
     }
 }
 
 impl StdError for LoadError {
-    #[inline]
-    fn description(&self) -> &'static str {
-        match self.kind {
-            LoadErrorKind::Joints(_) => "Could not load hierarchy",
-            LoadErrorKind::Motion(_) => "Could not load motion",
-        }
-    }
-
     #[inline]
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self.kind {
@@ -303,24 +300,24 @@ impl fmt::Display for LoadMotionError {
             LoadMotionError::MissingMotionSection {
                 line
             } => {
-                write!(fmtr, "{}: {}", line, self.description())
+                write!(fmtr, "{}: The 'MOTION' section of the bvh file is missing", line)
             }
             LoadMotionError::MissingNumFrames { ref parse_error, line } => {
                 if let Some(ref e) = parse_error {
                     write!(fmtr, "{}: could not parse the num frames value: {}", line, e)
                 } else {
-                    write!(fmtr, "{}: {}", line, self.description())
+                    write!(fmtr, "{}: The number of frames section is missing from the bvh file", line)
                 }
             }
             LoadMotionError::MissingFrameTime { ref parse_error, line } => {
                 if let Some(ref e) = parse_error {
                     write!(fmtr, "{}: could not parse the frame time: {}", line, e)
                 } else {
-                    write!(fmtr, "{}: {}", line, self.description())
+                    write!(fmtr, "{}: Could not parse the frame time", line)
                 }
             }
             LoadMotionError::ParseMotionSection { ref parse_error, line, .. } => {
-                write!(fmtr, "{}: {} ({})", line, self.description(), parse_error)
+                write!(fmtr, "{}: Could not parse the motion value ({})", line, parse_error)
             }
             LoadMotionError::MotionCountMismatch  {
                 actual_total_motion_values,
@@ -341,24 +338,6 @@ impl fmt::Display for LoadMotionError {
 }
 
 impl StdError for LoadMotionError {
-    #[inline]
-    fn description(&self) -> &str {
-        match *self {
-            LoadMotionError::Io(ref e) => e.description(),
-            LoadMotionError::MissingMotionSection { .. } => {
-                "the 'MOTION' section of the bvh file is missing"
-            }
-            LoadMotionError::MissingNumFrames { .. } => {
-                "the number of frames section is missing from the bvh file"
-            }
-            LoadMotionError::MissingFrameTime { .. } => {
-                "the frame time is missing from the bvh file"
-            }
-            LoadMotionError::ParseMotionSection { .. } => "could not parse the motion value",
-            LoadMotionError::MotionCountMismatch { .. } => "unexpected number of motion values",
-        }
-    }
-
     #[inline]
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
@@ -449,13 +428,8 @@ impl<S: Into<BString>> From<S> for ParseChannelError {
 impl fmt::Display for ParseChannelError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {:?}", self.description(), &self.bad_string)
+        write!(f, "The channel could not be parsed from the given string: {:?}", &self.bad_string)
     }
 }
 
-impl StdError for ParseChannelError {
-    #[inline]
-    fn description(&self) -> &'static str {
-        "The channel could not be parsed from the given string"
-    }
-}
+impl StdError for ParseChannelError {}
