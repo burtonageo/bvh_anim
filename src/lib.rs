@@ -15,6 +15,7 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#![allow(warnings)]
 #![warn(unused_imports, missing_docs)]
 #![deny(bare_trait_objects)]
 
@@ -212,6 +213,7 @@ use bstr::{
     io::{BufReadExt, ByteLines},
     BStr, BString, ByteSlice,
 };
+use crate::joint::JointData;
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
 use std::{
@@ -225,7 +227,7 @@ use std::{
     time::Duration,
 };
 
-pub use joint::{Joint, JointData, JointMut, JointName, Joints, JointsMut};
+pub use joint::{Joint, JointMut, Joints, JointsMut};
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
 

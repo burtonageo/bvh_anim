@@ -588,7 +588,7 @@ fn string_parse_big() {
 
     // go through item by item to see test failures more easily.
     for (parsed_joint, macro_joint) in bvh.joints().zip(bvh_from_macro.joints()) {
-        assert_eq!(parsed_joint.data(), macro_joint.data());
+        assert_eq!(parsed_joint, macro_joint);
     }
     assert_eq!(bvh.frame_time(), bvh_from_macro.frame_time());
 

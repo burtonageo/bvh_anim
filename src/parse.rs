@@ -2,8 +2,8 @@
 
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
-    fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines, JointData,
-    JointName,
+    fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines,
+    joint::{JointData, JointName},
 };
 use bstr::ByteSlice;
 use lexical::{parse, try_parse};

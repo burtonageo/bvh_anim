@@ -7,12 +7,13 @@ use std::{
     ffi::{CStr, CString},
     fmt, mem,
     ops::{Deref, DerefMut},
+    ptr,
     str,
 };
 
 /// Internal representation of a joint.
 #[derive(Clone, Debug, PartialEq)]
-pub enum JointData {
+pub(crate) enum JointData {
     /// Root of the skeletal heirarchy.
     Root {
         /// Name of the root `Joint`.   
@@ -39,181 +40,40 @@ pub enum JointData {
 }
 
 impl JointData {
-    /// Returns `true` if the `Joint` is the root `Joint`, or `false` if it isn't.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use bvh_anim::bvh;
-    /// let bvh = bvh! {
-    ///     HIERARCHY
-    ///     ROOT Hips
-    ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         End Site {
-    ///             OFFSET 0.0 0.0 30.0
-    ///         }
-    ///     }
-    ///     MOTION
-    ///     Frames: 0
-    ///     Frame Time: 0.0333333
-    /// };
-    ///
-    /// let root = bvh.root_joint().unwrap();
-    /// assert!(root.data().is_root());
-    /// ```
     #[inline]
-    pub fn is_root(&self) -> bool {
+    pub(crate) fn is_root(&self) -> bool {
         match *self {
             JointData::Root { .. } => true,
             _ => false,
         }
     }
 
-    /// Returns `true` if the `Joint` is a child `Joint`, or `false` if it isn't.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use bvh_anim::bvh;
-    /// let bvh = bvh! {
-    /// #   HIERARCHY
-    /// #   ROOT Base
-    /// #   {
-    /// #       OFFSET 0.0 0.0 0.0
-    /// #       CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    /// #       JOINT End
-    /// #       {
-    /// #           OFFSET 0.0 0.0 15.0
-    /// #           CHANNELS 3 Zrotation Xrotation Yrotation
-    /// #           End Site
-    /// #           {
-    /// #               OFFSET 0.0 0.0 30.0
-    /// #           }
-    /// #       }
-    /// #   }
-    /// #   MOTION
-    /// #   Frames: 0
-    /// #   Frame Time: 0.0333333
-    ///     // bvh hierarchy unspecified ..
-    /// };
-    ///
-    /// for joint in bvh.joints().skip(1) {
-    ///     assert!(joint.data().is_child());
-    /// }
-    /// ```
     #[inline]
-    pub fn is_child(&self) -> bool {
+    pub(crate) fn is_child(&self) -> bool {
         match *self {
             JointData::Child { .. } => true,
             _ => false,
         }
     }
 
-    /// Returns the name of the `JointData`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use bvh_anim::bvh;
-    /// let bvh = bvh! {
-    ///     HIERARCHY
-    ///     ROOT Hips
-    ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         // ...
-    /// #       End Site {
-    /// #           OFFSET 0.0 0.0 30.0
-    /// #       }
-    ///     }
-    ///     MOTION
-    ///     // ...
-    /// #   Frames: 0
-    /// #   Frame Time: 0.0333333
-    /// };
-    ///
-    /// let root = bvh.root_joint().unwrap();
-    /// assert_eq!(root.data().name(), "Hips");
-    /// ```
     #[inline]
-    pub fn name(&self) -> &BStr {
-        match *self {
-            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => name.as_ref(),
-        }
+    pub(crate) fn name(&self) -> &BStr {
+        let name = match *self {
+            JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => name,
+        };
+
+        name.as_bstr()
     }
 
-    /// Returns the offset of the `JointData` if it exists, or `None`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use bvh_anim::bvh;
-    /// let bvh = bvh! {
-    ///     HIERARCHY
-    ///     ROOT Hips
-    ///     {
-    ///         OFFSET 1.2 3.4 5.6
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         // ...
-    /// #       End Site {
-    /// #           OFFSET 0.0 0.0 30.0
-    /// #       }
-    ///     }
-    ///     MOTION
-    ///     // ...
-    /// #   Frames: 0
-    /// #   Frame Time: 0.0333333
-    /// };
-    ///
-    /// let root = bvh.root_joint().unwrap();
-    /// assert_eq!(root.data().offset(), &[1.2, 3.4, 5.6].into());
-    /// ```
     #[inline]
-    pub fn offset(&self) -> &Vector3<f32> {
+    pub(crate) fn offset(&self) -> &Vector3<f32> {
         match *self {
             JointData::Child { ref offset, .. } | JointData::Root { ref offset, .. } => offset,
         }
     }
 
-    /// Returns the `end_site` position if this `Joint` has an end site, or `None` if
-    /// it doesn't.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use bvh_anim::bvh;
-    /// let bvh = bvh! {
-    ///     HIERARCHY
-    ///     ROOT Base
-    ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         JOINT Tip
-    ///         {
-    ///             OFFSET 0.0 0.0 5.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             End Site
-    ///             {
-    ///                 OFFSET 5.4 3.2 1.0
-    ///             }
-    ///         }
-    ///     }
-    ///     MOTION
-    ///     // ...
-    /// #   Frames: 0
-    /// #   Frame Time: 0.0333333
-    /// };
-    /// let mut joints = bvh.joints();
-    /// let base = joints.next().unwrap();
-    /// assert!(base.data().end_site().is_none());
-    ///
-    /// let tip = joints.next().unwrap();
-    /// assert_eq!(tip.data().end_site(), Some([5.4, 3.2, 1.0].into()).as_ref());
-    /// ```
     #[inline]
-    pub fn end_site(&self) -> Option<&Vector3<f32>> {
+    pub(crate) fn end_site(&self) -> Option<&Vector3<f32>> {
         match *self {
             JointData::Child {
                 ref end_site_offset,
@@ -223,55 +83,6 @@ impl JointData {
         }
     }
 
-    /// Returns `true` if the `Joint` has an `end_site_offset`, or `false` if it doesn't.
-    #[inline]
-    pub fn has_end_site(&self) -> bool {
-        self.end_site().is_some()
-    }
-
-    /// Returns the ordered array of `Channel`s of this `JointData`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use bvh_anim::{bvh, ChannelType};
-    /// let bvh = bvh! {
-    ///     HIERARCHY
-    ///     ROOT Hips
-    ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         // ...
-    /// #       End Site {
-    /// #           OFFSET 0.0 0.0 30.0
-    /// #       }
-    ///     }
-    ///     MOTION
-    ///     // ...
-    /// #   Frames: 0
-    /// #   Frame Time: 0.0333333
-    /// };
-    ///
-    /// let root = bvh.root_joint().unwrap();
-    /// let expected_channels = &[
-    ///     ChannelType::PositionX,
-    ///     ChannelType::PositionY,
-    ///     ChannelType::PositionZ,
-    ///     ChannelType::RotationZ,
-    ///     ChannelType::RotationX,
-    ///     ChannelType::RotationY,
-    /// ];
-    ///
-    /// for (channel, &expected) in root
-    ///     .data()
-    ///     .channels()
-    ///     .iter()
-    ///     .map(|c| c.channel_type())
-    ///     .zip(expected_channels.iter())
-    /// {
-    ///     assert_eq!(channel, expected);
-    /// }
-    /// ```
     #[inline]
     pub fn channels(&self) -> &[Channel] {
         match *self {
@@ -293,20 +104,12 @@ impl JointData {
         }
     }
 
-    /// Returns the total number of channels applicable to this `JointData`.
-    #[inline]
-    pub fn num_channels(&self) -> usize {
-        self.channels().len()
-    }
-
     /// Return the index of this `Joint` in the array.
     #[inline]
     pub fn index(&self) -> usize {
         self.private_data().map(|d| d.self_index).unwrap_or(0)
     }
 
-    /// Returns the index of the parent `JointData`, or `None` if this `JointData` is the
-    /// root joint.
     #[inline]
     pub fn parent_index(&self) -> Option<usize> {
         self.private_data().map(|d| d.parent_index)
@@ -318,18 +121,6 @@ impl JointData {
     pub(crate) fn private_data(&self) -> Option<&JointPrivateData> {
         match *self {
             JointData::Child { ref private, .. } => Some(private),
-            _ => None,
-        }
-    }
-
-    /// Returns a mutable reference to the `JointPrivateData` of the `JointData` if it
-    /// exists, or `None`.
-    #[inline]
-    pub(crate) fn private_data_mut(&mut self) -> Option<&mut JointPrivateData> {
-        match *self {
-            JointData::Child {
-                ref mut private, ..
-            } => Some(private),
             _ => None,
         }
     }
@@ -399,15 +190,33 @@ impl JointData {
             } => *channels = new_channels.iter().map(|c| *c).collect(),
         }
     }
+
+    /// Returns a mutable reference to the `JointPrivateData` of the `JointData` if it
+    /// exists, or `None`.
+    #[inline]
+    pub(crate) fn private_data_mut(&mut self) -> Option<&mut JointPrivateData> {
+        match *self {
+            JointData::Child {
+                ref mut private, ..
+            } => Some(private),
+            _ => None,
+        }
+    }
 }
 
 /// A string type for the `Joint` name. A `SmallVec` is used for
 /// better data locality.
-pub type JointNameInner = SmallVec<[u8; mem::size_of::<String>()]>;
+pub(crate) type JointNameInner = SmallVec<[u8; mem::size_of::<String>()]>;
 
 /// Wrapper struct for the `Joint` name type.
 #[derive(Clone, Default, Eq, Hash, Ord)]
-pub struct JointName(pub JointNameInner);
+pub(crate) struct JointName(pub(crate) JointNameInner);
+
+impl JointName {
+    pub(crate) fn as_bstr(&self) -> &BStr {
+        self.as_ref()
+    }
+}
 
 impl Deref for JointName {
     type Target = JointNameInner;
@@ -469,14 +278,14 @@ impl From<&'_ CStr> for JointName {
 impl From<Vec<u8>> for JointName {
     #[inline]
     fn from(s: Vec<u8>) -> Self {
-        JointName(s.into_iter().collect())
+        JointName(JointNameInner::from(s))
     }
 }
 
 impl From<&'_ [u8]> for JointName {
     #[inline]
     fn from(s: &'_ [u8]) -> Self {
-        From::from(s.to_vec())
+        JointName(JointNameInner::from(s))
     }
 }
 
@@ -511,8 +320,15 @@ impl_as_ref! {
 
 impl From<JointNameInner> for JointName {
     #[inline]
-    fn from(v: JointNameInner) -> Self {
-        JointName(v)
+    fn from(mut s: JointNameInner) -> Self {
+        match s.chars().last() {
+            Some(c) if c != '\0' => {
+                s.push(0);
+            }
+            _ => (),
+        }
+
+        JointName(s)
     }
 }
 
@@ -589,7 +405,7 @@ impl fmt::Debug for Joints<'_> {
 
 impl<'a> Joints<'a> {
     /// Create a `Joints` iterator over all the `joints` in a `Bvh` file.
-    pub(crate) fn iter_root(joints: &'a [JointData] //clips: &'a AtomicRefCell<Clips>
+    pub(crate) fn iter_root(joints: &'a [JointData], //clips: &'a AtomicRefCell<Clips>
     ) -> Self {
         Joints {
             joints,
@@ -673,7 +489,8 @@ pub struct JointsMut<'a> {
 }
 
 impl<'a> JointsMut<'a> {
-    pub(crate) fn iter_root(joints: &'a mut [JointData] //clips: &'a AtomicRefCell<Clips>
+    pub(crate) fn iter_root(
+        joints: &'a mut [JointData], //clips: &'a AtomicRefCell<Clips>
     ) -> Self {
         JointsMut {
             joints,
@@ -719,7 +536,246 @@ pub struct Joint<'a> {
     pub(crate) joints: &'a [JointData],
 }
 
+impl PartialEq for Joint<'_> {
+    #[inline]
+    fn eq(&self, rhs: &Self) -> bool {
+        let (d0, d1) = (self.data(), rhs.data());
+        PartialEq::eq(d0, d1)
+    }
+}
+
 impl Joint<'_> {
+    /// Returns `true` if the `Joint` is the root `Joint`, or `false` if it isn't.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         End Site {
+    ///             OFFSET 0.0 0.0 30.0
+    ///         }
+    ///     }
+    ///     MOTION
+    ///     Frames: 0
+    ///     Frame Time: 0.0333333
+    /// };
+    ///
+    /// let root = bvh.root_joint().unwrap();
+    /// assert!(root.is_root());
+    /// ```
+    #[inline]
+    pub fn is_root(&self) -> bool {
+        self.data().is_root()
+    }
+
+    /// Returns `true` if the `Joint` is a child `Joint`, or `false` if it isn't.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    /// #   HIERARCHY
+    /// #   ROOT Base
+    /// #   {
+    /// #       OFFSET 0.0 0.0 0.0
+    /// #       CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    /// #       JOINT End
+    /// #       {
+    /// #           OFFSET 0.0 0.0 15.0
+    /// #           CHANNELS 3 Zrotation Xrotation Yrotation
+    /// #           End Site
+    /// #           {
+    /// #               OFFSET 0.0 0.0 30.0
+    /// #           }
+    /// #       }
+    /// #   }
+    /// #   MOTION
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    ///     // bvh hierarchy unspecified ..
+    /// };
+    ///
+    /// for joint in bvh.joints().skip(1) {
+    ///     assert!(joint.is_child());
+    /// }
+    /// ```
+    #[inline]
+    pub fn is_child(&self) -> bool {
+        self.data().is_child()
+    }
+
+    /// Returns the name of the `JointData`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         // ...
+    /// #       End Site {
+    /// #           OFFSET 0.0 0.0 30.0
+    /// #       }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    ///
+    /// let root = bvh.root_joint().unwrap();
+    /// assert_eq!(root.name(), "Hips");
+    /// ```
+    #[inline]
+    pub fn name(&self) -> &BStr {
+        self.data().name()
+    }
+
+    /// Returns the offset of the `JointData` if it exists, or `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 1.2 3.4 5.6
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         // ...
+    /// #       End Site {
+    /// #           OFFSET 0.0 0.0 30.0
+    /// #       }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    ///
+    /// let root = bvh.root_joint().unwrap();
+    /// assert_eq!(root.offset(), &[1.2, 3.4, 5.6].into());
+    /// ```
+    #[inline]
+    pub fn offset(&self) -> &Vector3<f32> {
+        self.data().offset()
+    }
+
+    /// Returns the `end_site` position if this `Joint` has an end site, or `None` if
+    /// it doesn't.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::bvh;
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Base
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         JOINT Tip
+    ///         {
+    ///             OFFSET 0.0 0.0 5.0
+    ///             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///             End Site
+    ///             {
+    ///                 OFFSET 5.4 3.2 1.0
+    ///             }
+    ///         }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    /// let mut joints = bvh.joints();
+    /// let base = joints.next().unwrap();
+    /// assert!(base.end_site().is_none());
+    ///
+    /// let tip = joints.next().unwrap();
+    /// assert_eq!(tip.end_site(), Some([5.4, 3.2, 1.0].into()).as_ref());
+    /// ```
+    #[inline]
+    pub fn end_site(&self) -> Option<&Vector3<f32>> {
+        self.data().end_site()
+    }
+
+    /// Returns `true` if the `Joint` has an `end_site_offset`, or `false` if it doesn't.
+    #[inline]
+    pub fn has_end_site(&self) -> bool {
+        self.end_site().is_some()
+    }
+
+    /// Returns the ordered array of `Channel`s of this `JointData`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use bvh_anim::{bvh, ChannelType};
+    /// let bvh = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Hips
+    ///     {
+    ///         OFFSET 0.0 0.0 0.0
+    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///         // ...
+    /// #       End Site {
+    /// #           OFFSET 0.0 0.0 30.0
+    /// #       }
+    ///     }
+    ///     MOTION
+    ///     // ...
+    /// #   Frames: 0
+    /// #   Frame Time: 0.0333333
+    /// };
+    ///
+    /// let root = bvh.root_joint().unwrap();
+    /// let expected_channels = &[
+    ///     ChannelType::PositionX,
+    ///     ChannelType::PositionY,
+    ///     ChannelType::PositionZ,
+    ///     ChannelType::RotationZ,
+    ///     ChannelType::RotationX,
+    ///     ChannelType::RotationY,
+    /// ];
+    ///
+    /// for (channel, &expected) in root
+    ///     .channels()
+    ///     .iter()
+    ///     .map(|c| c.channel_type())
+    ///     .zip(expected_channels.iter())
+    /// {
+    ///     assert_eq!(channel, expected);
+    /// }
+    /// ```
+    #[inline]
+    pub fn channels(&self) -> &[Channel] {
+        self.data().channels()
+    }
+
+    #[inline]
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    #[inline]
+    pub fn parent_index(&self) -> Option<usize> {
+        self.data().parent_index()
+    }
+
     /// Return the parent `Joint` if it exists, or `None` if it doesn't.
     #[inline]
     pub fn parent(&self) -> Option<Joint<'_>> {
@@ -737,7 +793,7 @@ impl Joint<'_> {
 
     /// Access a read-only view of the internal data of the `Joint`.
     #[inline]
-    pub fn data(&self) -> &JointData {
+    pub(crate) fn data(&self) -> &JointData {
         &self.joints[self.index]
     }
 }
@@ -771,15 +827,15 @@ impl<'a> JointMut<'a> {
             clips: self.clips,
         })
     }
-    
-    pub fn 
-    
+
+    pub fn
+
     /// Returns an iterator over the children of `self`.
     #[inline]
     pub fn children(&self) -> Joints<'_> {
         Joints::iter_children(&self)
     }
-    
+
     /// Access a read-only view of the internal data of the `Joint`.
     #[inline]
     pub fn data(&self) -> &JointData {
@@ -788,7 +844,7 @@ impl<'a> JointMut<'a> {
     */
     /// Mutable access to the internal data of the `JointMut`.
     #[inline]
-    pub fn data_mut(&mut self) -> &mut JointData {
+    pub(crate) fn data_mut(&mut self) -> &mut JointData {
         &mut self.joints[self.index]
     }
 }
