@@ -2,7 +2,7 @@
 
 //! Defines a `Builder` struct used to build a `Bvh` dynamically.
 
-use crate::{Bvh, Channel, ChannelType, JointName};
+use crate::{Bvh, Channel, ChannelType, joint::JointName};
 use bstr::BStr;
 use mint::Vector3;
 use smallvec::SmallVec;
