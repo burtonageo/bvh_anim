@@ -9,7 +9,7 @@ header = """
  * The bvh_anim library, used to parse bvh files. You can view the documentation
  * for this library at <<PLACEHOLDER>>.
  *
- * Copyright (c) 2019 George Burton
+ * Copyright (c) 2019-2020 George Burton
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,7 +32,7 @@ header = """
  */
 """
 
-sys_includes = ["stdio"]
+sys_includes = ["stdio.h"]
 
 autogen_warning = """
 /* This file has been automatically generated - do not edit it manually. */
@@ -43,7 +43,18 @@ autogen_warning = """
 #define BVH_C_API extern
 #endif /* defined(__cplusplus) */
 
-#if defined(_WIN32)
+#if (defined(__cplusplus) && __cplusplus >= 201103L) || __has_include(<stdalign.h>)
+    #if !defined(__cplusplus)
+        #include <stdalign.h>
+    #endif
+
+    #define BVH_ALIGN(n) alignas(n)
+    #define BVH_ALIGN_IS_DEFINED 1
+#else
+    #define BVH_ALIGN_IS_DEFINED 0
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
     #if defined(__CYGWIN__)
         #ifndef __has_attribute
             #define __has_attribute(x) 0
@@ -60,11 +71,26 @@ autogen_warning = """
         #else
             #define BVH_DLL_PUBLIC
         #endif
+
+        #if !defined(BVH_ALIGN_IS_DEFINED) || (BVH_ALIGN_IS_DEFINED == 0)
+            #if __has_attribute(aligned)
+                #define BVH_ALIGN(n) __attribute__((aligned(n)))
+                #undef BVH_ALIGN_IS_DEFINED
+                #define BVH_ALIGN_IS_DEFINED 1
+            #endif
+        #endif
+
     #elif defined(_MSC_VER)
         #if (_MSC_VER >= 1700)
             #define BVH_WARN_UNUSED _Check_return_
         #else
             #define BVH_WARN_UNUSED
+        #endif
+
+        #if defined(BVH_ALIGN_IS_DEFINED) && (BVH_ALIGN_IS_DEFINED == 1)
+            #define BVH_ALIGN(n) __declspec(align(n))
+            #undef BVH_ALIGN_IS_DEFINED
+            #define BVH_ALIGN_IS_DEFINED 1
         #endif
 
         #define BVH_DLL_PUBLIC __declspec(dllimport)
@@ -83,17 +109,32 @@ autogen_warning = """
         #define BVH_WARN_UNUSED
     #endif
 
-    #if __has_attribute(visibility)
+    #if (__GNUC__ >= 4) || (__clang__ != 0)
         #define BVH_DLL_PUBLIC __attribute__((visibility ("default")))
     #else
         #define BVH_DLL_PUBLIC
     #endif
+
+    #if !defined(BVH_ALIGN_IS_DEFINED) || (BVH_ALIGN_IS_DEFINED == 0)
+        #if __has_attribute(aligned)
+            #define BVH_ALIGN(n) __attribute__((aligned(n)))
+            #undef BVH_ALIGN_IS_DEFINED
+            #define BVH_ALIGN_IS_DEFINED 1
+        #endif
+    #endif
+#endif
+
+#if !defined(BVH_ALIGN_IS_DEFINED) || (BVH_ALIGN_IS_DEFINED == 0)
+    #error "An alignment specifier attribute is not available for this platform."
 #endif
 
 #if defined(_MSC_VER)
     #include <sal.h>
 #endif
 """
+
+[layout]
+aligned_n = "BVH_ALIGN"
 
 [fn]
 must_use = "BVH_WARN_UNUSED"
