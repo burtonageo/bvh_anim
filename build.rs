@@ -97,8 +97,6 @@ fn main() -> Result<(), error::Error> {
     let crate_dir = env::var("CARGO_MANIFEST_DIR")?;
     let mut bindings = cbindgen::generate(crate_dir)?;
 
-    push_stdio(&mut bindings.config);
-
     let mut header_path = target_dir()?;
     header_path.push("include/bvh_anim/bvh_anim.h");
 
@@ -115,14 +113,6 @@ fn main() -> Result<(), error::Error> {
                     .map(PathBuf::from)
                     .map(|p| p.join("target"))
             })
-    }
-
-    #[inline]
-    fn push_stdio(config: &mut Config) {
-        match config.language {
-            Language::Cxx => config.sys_includes.push("cstdio".to_string()),
-            Language::C => config.sys_includes.push("stdio.h".to_string()),
-        }
     }
 
     #[cfg(feature = "ctests")]

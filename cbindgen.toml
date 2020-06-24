@@ -32,6 +32,8 @@ header = """
  */
 """
 
+sys_includes = ["stdio"]
+
 autogen_warning = """
 /* This file has been automatically generated - do not edit it manually. */
 
