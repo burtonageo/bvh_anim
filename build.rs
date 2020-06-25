@@ -27,19 +27,6 @@ mod error {
                 _ => None,
             }
         }
-
-        #[inline]
-        fn description(&self) -> &str {
-            match *self {
-                Error::Bindgen(ref e) => e.description(),
-                // Error::Cc(ref e) => e.description(),
-                Error::Io(ref e) => e.description(),
-                Error::Env(ref e) => e.description(),
-                #[cfg(feature = "ctests")]
-                Error::Cc(_) => "A c compiler error occurred",
-                Error::Unspecified => "An unspecified error occurred",
-            }
-        }
     }
 
     impl fmt::Display for Error {
@@ -48,8 +35,8 @@ mod error {
             match *self {
                 Error::Bindgen(ref e) => fmt::Display::fmt(e, f),
                 #[cfg(feature = "ctests")]
-                Error::Cc(_) => f.write_str(error::Error::description(self)),
-                Error::Unspecified => f.write_str(error::Error::description(self)),
+                Error::Cc(e) => fmt::Display::fmt(e),
+                Error::Unspecified => f.write_str("An unspecified error occurred"),
                 Error::Io(ref e) => fmt::Display::fmt(e, f),
                 Error::Env(ref e) => fmt::Display::fmt(e, f),
             }
@@ -88,14 +75,13 @@ mod error {
 
 #[cfg(feature = "bindings")]
 fn main() -> Result<(), error::Error> {
-    use cbindgen::{self, Config, Language};
     use std::{
         env::{self, VarError},
         path::PathBuf,
     };
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR")?;
-    let mut bindings = cbindgen::generate(crate_dir)?;
+    let bindings = cbindgen::generate(crate_dir)?;
 
     let mut header_path = target_dir()?;
     header_path.push("include/bvh_anim/bvh_anim.h");
