@@ -7,8 +7,7 @@ use std::{
     ffi::{CStr, CString},
     fmt, mem,
     ops::{Deref, DerefMut},
-    ptr,
-    str,
+    ptr, str,
 };
 
 /// Internal representation of a joint.
@@ -34,7 +33,6 @@ pub(crate) enum JointData {
         /// End site offset.
         end_site_offset: Option<Vector3<f32>>,
         /// Private data.
-        #[doc(hidden)]
         private: JointPrivateData,
     },
 }

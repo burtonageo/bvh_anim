@@ -209,11 +209,11 @@ pub mod write;
 mod joint;
 mod parse;
 
+use crate::joint::JointData;
 use bstr::{
     io::{BufReadExt, ByteLines},
     BStr, BString, ByteSlice,
 };
-use crate::joint::JointData;
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
 use std::{
@@ -673,6 +673,7 @@ impl TryFrom<&'_ [u8]> for Bvh {
 
 /// A `Channel` composed of a `ChannelType` and an index into the
 /// corresponding motion data.
+#[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Channel {
     /// The type of the `Channel`.
@@ -704,6 +705,7 @@ impl Channel {
 }
 
 /// The available degrees of freedom along which a `Joint` may be manipulated.
+#[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ChannelType {
     /// Can be rotated along the `x` axis.

@@ -428,7 +428,11 @@ impl<S: Into<BString>> From<S> for ParseChannelError {
 impl fmt::Display for ParseChannelError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "The channel could not be parsed from the given string: {:?}", &self.bad_string)
+        write!(
+            f,
+            "The channel could not be parsed from the given string: {:?}",
+            &self.bad_string
+        )
     }
 }
 
