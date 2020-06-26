@@ -160,7 +160,8 @@ impl JointData {
         }
     }
 
-    pub(crate) fn set_offset(&mut self, new_offset: Vector3<f32>, is_site: bool) {
+    pub(crate) fn set_offset(&mut self, new_offset: impl Into<Vector3<f32>>, is_site: bool) {
+        let new_offset = new_offset.into();
         match *self {
             JointData::Root { ref mut offset, .. } => *offset = new_offset,
             JointData::Child {
@@ -354,7 +355,7 @@ impl fmt::Display for JointName {
 /// Data private to joints.
 #[doc(hidden)]
 #[derive(Clone, Eq, PartialEq)]
-pub struct JointPrivateData {
+pub(crate) struct JointPrivateData {
     /// Index of this `Joint` in the array.
     pub(crate) self_index: usize,
     /// The parent index in the array of `JointPrivateData`s in the `Bvh`.
