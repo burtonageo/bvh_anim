@@ -7,8 +7,7 @@ use std::{
     ffi::{CStr, CString},
     fmt, mem,
     ops::{Deref, DerefMut},
-    ptr,
-    str,
+    ptr, str,
 };
 
 /// Internal representation of a joint.

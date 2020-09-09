@@ -2,11 +2,12 @@
 
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
-    fraction_seconds_to_duration, Axis, Bvh, Channel, ChannelType, EnumeratedLines,
+    fraction_seconds_to_duration,
     joint::{JointData, JointName},
+    Axis, Bvh, Channel, ChannelType, EnumeratedLines,
 };
 use bstr::ByteSlice;
-use lexical::{parse};
+use lexical::parse;
 use mint::Vector3;
 /*
 use nom::{
@@ -388,13 +389,12 @@ impl Bvh {
                     macro_rules! parse_axis {
                         ($axis_field:ident, $axis_enum:ident) => {
                             if let Some(tok) = tokens.next() {
-                                offset.$axis_field = parse(tok).map_err(|e| {
-                                    LoadJointsError::ParseOffsetError {
+                                offset.$axis_field =
+                                    parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
                                         parse_float_error: e,
                                         axis: Axis::$axis_enum,
                                         line: line_num,
-                                    }
-                                })?;
+                                    })?;
                             } else {
                                 return Err(LoadJointsError::MissingOffsetAxis {
                                     axis: Axis::$axis_enum,
@@ -602,13 +602,12 @@ impl Bvh {
             let line = line?;
             let tokens = line.fields();
             for (channel_index, token) in tokens.enumerate() {
-                let motion = parse::<f32, _>(token).map_err(|e| {
-                    LoadMotionError::ParseMotionSection {
+                let motion =
+                    parse::<f32, _>(token).map_err(|e| LoadMotionError::ParseMotionSection {
                         parse_error: e,
                         channel_index,
                         line: line_num,
-                    }
-                })?;
+                    })?;
                 self.motion_values.push(motion);
             }
         }

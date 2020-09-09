@@ -209,11 +209,11 @@ pub mod write;
 mod joint;
 mod parse;
 
+use crate::joint::JointData;
 use bstr::{
     io::{BufReadExt, ByteLines},
     BStr, BString, ByteSlice,
 };
-use crate::joint::JointData;
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
 use std::{

@@ -194,15 +194,9 @@ impl fmt::Display for LoadJointsError {
                 "{}: unexpectedly encountered an \"OFFSET\" section",
                 line
             ),
-            LoadJointsError::ParseOffsetError {
-                axis,
-                line,
-                ..
-            } => write!(
-                f,
-                "{}: could not parse the {}-axis offset",
-                line, axis,
-            ),
+            LoadJointsError::ParseOffsetError { axis, line, .. } => {
+                write!(f, "{}: could not parse the {}-axis offset", line, axis,)
+            }
             LoadJointsError::MissingOffsetAxis { axis, line } => {
                 write!(f, "{}: the {}-axis offset value is missing", line, axis)
             }
@@ -433,7 +427,11 @@ impl<S: Into<BString>> From<S> for ParseChannelError {
 impl fmt::Display for ParseChannelError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "The channel could not be parsed from the given string: {:?}", &self.bad_string)
+        write!(
+            f,
+            "The channel could not be parsed from the given string: {:?}",
+            &self.bad_string
+        )
     }
 }
 
