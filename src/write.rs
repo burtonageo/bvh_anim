@@ -21,11 +21,17 @@ pub struct WriteOptions {
     /// Which style new line terminator to use when writing the `bvh`.
     pub line_terminator: LineTerminator,
     /// Number of significant figures to use when writing `OFFSET` values.
-    pub offset_significant_figures: usize,
+    ///
+    /// If this is `None`, then the minimum precision required will be used
+    pub offset_significant_figures: Option<usize>,
     /// Number of significant figures to use when writing the `Frame Time` value.
-    pub frame_time_significant_figures: usize,
+    ///
+    /// If this is `None`, then the minimum precision required will be used
+    pub frame_time_significant_figures: Option<usize>,
     /// Number of significant figures to use when writing `MOTION` values.
-    pub motion_values_significant_figures: usize,
+    ///
+    /// If this is `None`, then the minimum precision required will be used
+    pub motion_values_significant_figures: Option<usize>,
     #[doc(hidden)]
     _nonexhaustive: (),
 }
@@ -33,22 +39,22 @@ pub struct WriteOptions {
 impl Default for WriteOptions {
     #[inline]
     fn default() -> Self {
-        WriteOptions {
-            indent: Default::default(),
-            line_terminator: Default::default(),
-            offset_significant_figures: 5,
-            frame_time_significant_figures: 7,
-            motion_values_significant_figures: 2,
-            _nonexhaustive: (),
-        }
+        Self::new()
     }
 }
 
 impl WriteOptions {
     /// Create a new `WriteOptions` with default values.
     #[inline]
-    pub fn new() -> Self {
-        Default::default()
+    pub const fn new() -> Self {
+        WriteOptions {
+            indent: IndentStyle::Tabs,
+            line_terminator: LineTerminator::native(),
+            offset_significant_figures: None,
+            frame_time_significant_figures: None,
+            motion_values_significant_figures: None,
+            _nonexhaustive: (),
+        }
     }
 
     /// Output the `Bvh` file to the `writer` with the given options.
@@ -89,13 +95,13 @@ impl WriteOptions {
     /// Sets `indent` on `self` to the new `IndentStyle`.
     #[inline]
     pub const fn with_indent(self, indent: IndentStyle) -> Self {
-        WriteOptions { indent, ..self }
+        Self { indent, ..self }
     }
 
     /// Sets `line_terminator` on `self` to the new `LineTerminator`.
     #[inline]
-    pub fn with_line_terminator(self, line_terminator: LineTerminator) -> Self {
-        WriteOptions {
+    pub const fn with_line_terminator(self, line_terminator: LineTerminator) -> Self {
+        Self {
             line_terminator,
             ..self
         }
@@ -103,33 +109,39 @@ impl WriteOptions {
 
     /// Sets `offset_significant_figures` on `self` to the new `offset_significant_figures`.
     #[inline]
-    pub const fn with_offset_significant_figures(self, offset_significant_figures: usize) -> Self {
-        WriteOptions {
-            offset_significant_figures,
+    pub fn with_offset_significant_figures<N>(self, offset_significant_figures: N) -> Self
+    where
+        N: Into<Option<usize>>,
+    {
+        Self {
+            offset_significant_figures: offset_significant_figures.into(),
             ..self
         }
     }
 
     /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
     #[inline]
-    pub const fn with_frame_time_significant_figures(
-        self,
-        frame_time_significant_figures: usize,
-    ) -> Self {
-        WriteOptions {
-            frame_time_significant_figures,
+    pub fn with_frame_time_significant_figures<N>(self, frame_time_significant_figures: N) -> Self
+    where
+        N: Into<Option<usize>>,
+    {
+        Self {
+            frame_time_significant_figures: frame_time_significant_figures.into(),
             ..self
         }
     }
 
     /// Sets `motion_values_significant_figures` on `self` to the new `motion_values_significant_figures`.
     #[inline]
-    pub const fn with_motion_values_significant_figures(
+    pub fn with_motion_values_significant_figures<N>(
         self,
-        motion_values_significant_figures: usize,
-    ) -> Self {
-        WriteOptions {
-            motion_values_significant_figures,
+        motion_values_significant_figures: N,
+    ) -> Self
+    where
+        N: Into<Option<usize>>,
+    {
+        Self {
+            motion_values_significant_figures: motion_values_significant_figures.into(),
             ..self
         }
     }
@@ -214,15 +226,12 @@ impl WriteOptions {
                             chunk.extend(self.indent.prefix_chars(depth));
 
                             let Vector3 { x, y, z } = joint_data.offset();
-                            let offset_str = format!(
-                                "OFFSET {:.*} {:.*} {:.*}",
-                                self.offset_significant_figures,
-                                x,
-                                self.offset_significant_figures,
-                                y,
-                                self.offset_significant_figures,
-                                z,
-                            );
+                            let offset_str = match self.offset_significant_figures {
+                                Some(sf) => {
+                                    format!("OFFSET {:.*} {:.*} {:.*}", sf, x, sf, y, sf, z,)
+                                }
+                                None => format!("OFFSET {:.} {:.} {:.}", x, y, z),
+                            };
                             chunk.extend_from_slice(offset_str.as_bytes());
                             chunk.extend_from_slice(terminator);
                             *wrote_offset = true;
@@ -257,15 +266,12 @@ impl WriteOptions {
                                 chunk.extend_from_slice(terminator);
 
                                 chunk.extend(self.indent.prefix_chars(depth + 1));
-                                let offset_str = format!(
-                                    "OFFSET {:.*} {:.*} {:.*}",
-                                    self.offset_significant_figures,
-                                    x,
-                                    self.offset_significant_figures,
-                                    y,
-                                    self.offset_significant_figures,
-                                    z,
-                                );
+                                let offset_str = match self.offset_significant_figures {
+                                    Some(sf) => {
+                                        format!("OFFSET {:.*} {:.*} {:.*}", sf, x, sf, y, sf, z)
+                                    }
+                                    None => format!("OFFSET {:.} {:.} {:.}", x, y, z),
+                                };
                                 chunk.extend_from_slice(offset_str.as_bytes());
                                 chunk.extend_from_slice(terminator);
 
@@ -322,12 +328,15 @@ impl WriteOptions {
             }
             WriteOptionsIterState::WriteFrameTime { ref mut written } => {
                 if !*written {
-                    *chunk = format!(
-                        "Frame Time: {:.*}",
-                        self.frame_time_significant_figures,
-                        duation_to_fractional_seconds(bvh.frame_time())
-                    )
-                    .into_bytes();
+                    *chunk = match self.frame_time_significant_figures {
+                        Some(sf) => {
+                            format!("Frame Time: {:.*}", sf, bvh.frame_time().as_secs_f64())
+                                .into_bytes()
+                        }
+                        None => {
+                            format!("Frame Time: {:.}", bvh.frame_time().as_secs_f64()).into_bytes()
+                        }
+                    };
                     chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {
@@ -347,8 +356,9 @@ impl WriteOptions {
                     let motion_values = frame
                         .as_slice()
                         .iter()
-                        .map(|motion| {
-                            format!("{:.*}", self.motion_values_significant_figures, motion)
+                        .map(|motion| match self.motion_values_significant_figures {
+                            Some(sf) => format!("{:.*}", sf, motion),
+                            None => format!("{:.}", motion),
                         })
                         .collect::<Vec<_>>()
                         .join(" ");
@@ -461,20 +471,13 @@ impl LineTerminator {
     ///
     /// * On Windows, this returns `LineTerminator::Windows`.
     /// * Otherwise, this returns `LineTerminator::Unix`.
-    #[cfg(target_os = "windows")]
     #[inline]
-    pub fn native() -> Self {
-        LineTerminator::Windows
-    }
-
-    /// Get the line terminator style native to the current OS:
-    ///
-    /// * On Windows, this returns `LineTerminator::Windows`.
-    /// * Otherwise, this returns `LineTerminator::Unix`.
-    #[cfg(not(target_os = "windows"))]
-    #[inline]
-    pub fn native() -> Self {
-        LineTerminator::Unix
+    pub const fn native() -> Self {
+        if cfg!(windows) {
+            LineTerminator::Windows
+        } else {
+            LineTerminator::Unix
+        }
     }
 
     /// Return the characters of the `LineTerminator` as a `&str`.

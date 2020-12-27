@@ -34,7 +34,6 @@ fn test_write() {
 
     let bvh_string = WriteOptions::new()
         .with_offset_significant_figures(1)
-        .with_frame_time_significant_figures(9)
         .with_motion_values_significant_figures(1)
         .with_line_terminator(LineTerminator::native())
         .with_indent(IndentStyle::with_spaces(4))
@@ -49,7 +48,6 @@ fn test_load_write_is_identical() {
     let bvh = bvh_anim::from_str(BVH_STRING).unwrap();
     let bvh_string = WriteOptions::new()
         .with_indent(IndentStyle::with_spaces(4))
-        .with_frame_time_significant_figures(9)
         .with_offset_significant_figures(1)
         .with_motion_values_significant_figures(1)
         .with_line_terminator(LineTerminator::native())
