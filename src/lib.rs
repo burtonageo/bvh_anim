@@ -708,18 +708,18 @@ impl Channel {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ChannelType {
-    /// Can be rotated along the `x` axis.
-    RotationX,
-    /// Can be rotated along the `y` axis.
-    RotationY,
-    /// Can be rotated along the `z` axis.
-    RotationZ,
     /// Can be translated along the `x` axis.
     PositionX,
     /// Can be translated along the `y` axis.
     PositionY,
     /// Can be translated along the `z` axis.
     PositionZ,
+    /// Can be rotated along the `x` axis.
+    RotationX,
+    /// Can be rotated along the `y` axis.
+    RotationY,
+    /// Can be rotated along the `z` axis.
+    RotationZ,
 }
 
 impl ChannelType {
