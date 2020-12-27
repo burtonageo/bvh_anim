@@ -3,6 +3,7 @@ tab_width = 4
 language = "C"
 style = "Tag"
 documentation_style = "Doxy"
+line_length = 80
 header = """
 /*
  *
@@ -32,26 +33,20 @@ header = """
  */
 """
 
-sys_includes = ["stdio.h"]
+no_includes = true
+sys_includes = ["stdio.h", "stdint.h", "stdlib.h"]
 
-autogen_warning = """
-/* This file has been automatically generated - do not edit it manually. */
+autogen_warning = "/* This file has been automatically generated - do not edit it manually. */"
+after_includes = """
+
+#if defined(_MSC_VER)
+    #include <sal.h>
+#endif
 
 #if defined(__cplusplus)
-#define BVH_C_API extern "C"
+    #define BVH_C_API extern "C"
 #else
-#define BVH_C_API extern
-#endif /* defined(__cplusplus) */
-
-#if (defined(__cplusplus) && __cplusplus >= 201103L) || __has_include(<stdalign.h>)
-    #if !defined(__cplusplus)
-        #include <stdalign.h>
-    #endif
-
-    #define BVH_ALIGN(n) alignas(n)
-    #define BVH_ALIGN_IS_DEFINED 1
-#else
-    #define BVH_ALIGN_IS_DEFINED 0
+    #define BVH_C_API extern
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -72,14 +67,11 @@ autogen_warning = """
             #define BVH_DLL_PUBLIC
         #endif
 
-        #if !defined(BVH_ALIGN_IS_DEFINED) || (BVH_ALIGN_IS_DEFINED == 0)
-            #if __has_attribute(aligned)
-                #define BVH_ALIGN(n) __attribute__((aligned(n)))
-                #undef BVH_ALIGN_IS_DEFINED
-                #define BVH_ALIGN_IS_DEFINED 1
-            #endif
+        #if __has_attribute(aligned)
+            #define BVH_ALIGN(n) __attribute__((aligned(n)))
+        #else
+            #error "Alignment attribute must be present"
         #endif
-
     #elif defined(_MSC_VER)
         #if (_MSC_VER >= 1700)
             #define BVH_WARN_UNUSED _Check_return_
@@ -87,16 +79,10 @@ autogen_warning = """
             #define BVH_WARN_UNUSED
         #endif
 
-        #if defined(BVH_ALIGN_IS_DEFINED) && (BVH_ALIGN_IS_DEFINED == 1)
-            #define BVH_ALIGN(n) __declspec(align(n))
-            #undef BVH_ALIGN_IS_DEFINED
-            #define BVH_ALIGN_IS_DEFINED 1
-        #endif
-
+        #define BVH_ALIGN(n) __declspec(align(n))
         #define BVH_DLL_PUBLIC __declspec(dllimport)
     #else
-        #define BVH_WARN_UNUSED
-        #define BVH_DLL_PUBLIC
+        #error "Unsupported platform"
     #endif
 #else
     #ifndef __has_attribute
@@ -110,26 +96,16 @@ autogen_warning = """
     #endif
 
     #if (__GNUC__ >= 4) || (__clang__ != 0)
-        #define BVH_DLL_PUBLIC __attribute__((visibility ("default")))
+        #define BVH_DLL_PUBLIC __attribute__((visibility("default")))
     #else
         #define BVH_DLL_PUBLIC
     #endif
 
-    #if !defined(BVH_ALIGN_IS_DEFINED) || (BVH_ALIGN_IS_DEFINED == 0)
-        #if __has_attribute(aligned)
-            #define BVH_ALIGN(n) __attribute__((aligned(n)))
-            #undef BVH_ALIGN_IS_DEFINED
-            #define BVH_ALIGN_IS_DEFINED 1
-        #endif
+    #if __has_attribute(aligned)
+        #define BVH_ALIGN(n) __attribute__((aligned(n)))
+    #else
+        #error "Alignment attribute must be present"
     #endif
-#endif
-
-#if !defined(BVH_ALIGN_IS_DEFINED) || (BVH_ALIGN_IS_DEFINED == 0)
-    #error "An alignment specifier attribute is not available for this platform."
-#endif
-
-#if defined(_MSC_VER)
-    #include <sal.h>
 #endif
 """
 
@@ -139,6 +115,7 @@ aligned_n = "BVH_ALIGN"
 [fn]
 must_use = "BVH_WARN_UNUSED"
 prefix = "BVH_C_API BVH_DLL_PUBLIC"
+sort_by = "None"
 
 [export]
 # Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
