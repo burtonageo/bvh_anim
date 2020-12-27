@@ -5,7 +5,9 @@ use smallvec::SmallVec;
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
     ffi::{CStr, CString},
-    fmt, mem,
+    fmt,
+    iter::once,
+    mem,
     ops::{Deref, DerefMut},
     ptr, str,
 };
@@ -253,7 +255,7 @@ macro_rules! impl_from {
         impl From<$t> for JointName {
             #[inline]
             fn from(b: $t) -> Self {
-                JointName(b.bytes().collect())
+                JointName(b.bytes().chain(once(b'\0')).collect())
             }
         }
         impl_from!($($rest)*);
@@ -263,20 +265,21 @@ macro_rules! impl_from {
 impl From<CString> for JointName {
     #[inline]
     fn from(s: CString) -> Self {
-        From::from(s.into_bytes())
+        From::from(s.into_bytes_with_nul())
     }
 }
 
 impl From<&'_ CStr> for JointName {
     #[inline]
     fn from(s: &'_ CStr) -> Self {
-        From::from(s.to_bytes())
+        From::from(s.to_bytes_with_nul())
     }
 }
 
 impl From<Vec<u8>> for JointName {
     #[inline]
-    fn from(s: Vec<u8>) -> Self {
+    fn from(mut s: Vec<u8>) -> Self {
+        s.push(b'\0');
         JointName(JointNameInner::from(s))
     }
 }
@@ -284,7 +287,12 @@ impl From<Vec<u8>> for JointName {
 impl From<&'_ [u8]> for JointName {
     #[inline]
     fn from(s: &'_ [u8]) -> Self {
-        JointName(JointNameInner::from(s))
+        JointName(
+            s.into_iter()
+                .copied()
+                .chain(once(b'\0'))
+                .collect::<JointNameInner>(),
+        )
     }
 }
 
@@ -299,13 +307,15 @@ macro_rules! impl_as_ref {
             impl AsRef<$t> for JointName {
                 #[inline]
                 fn as_ref(&self) -> &$t {
-                    $method(&self.0[..])
+                    let end = self.0.len() - 1;
+                    $method(&self.0[..end])
                 }
             }
             impl AsMut<$t> for JointName {
                 #[inline]
                 fn as_mut(&mut self) -> &mut $t {
-                    $mut_method(&mut self.0[..])
+                    let end = self.0.len() - 1;
+                    $mut_method(&mut self.0[..end])
                 }
             }
         )*
