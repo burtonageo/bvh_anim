@@ -51,15 +51,15 @@ fn ffi_convert() {
 
     let bvh_clone = bvh.clone();
     let from_ffi = unsafe {
-        let ffi = bvh.into_ffi();
-        Bvh::from_ffi(ffi).unwrap()
+        let mut ffi = bvh.into_ffi();
+        Bvh::from_ffi(&mut ffi)
     };
     assert_eq!(bvh_clone, from_ffi);
 }
 
 #[test]
 fn ffi_load_from_cfile() {
-    use bvh_anim::ffi::{bvh_BvhFile, bvh_read};
+    use bvh_anim::ffi::{bvh_BvhFile, bvh_file_read};
     use libc;
     use std::{ffi::CStr, ptr};
 
@@ -97,15 +97,12 @@ fn ffi_load_from_cfile() {
         assert_ne!(file, ptr::null_mut());
 
         let mut bvh = bvh_BvhFile::default();
-        let result = bvh_read(file, &mut bvh);
+        let result = bvh_file_read(file, &mut bvh);
         libc::fclose(file);
 
         assert_ne!(result, 0);
 
-        let bvh = Bvh::from_ffi(bvh).unwrap();
+        let bvh = Bvh::from_ffi(&mut bvh);
         assert_eq!(bvh, expected_bvh);
     }
 }
-
-#[test]
-fn custom_allocators() {}
