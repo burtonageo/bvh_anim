@@ -116,7 +116,3 @@ aligned_n = "BVH_ALIGN"
 must_use = "BVH_WARN_UNUSED"
 prefix = "BVH_C_API BVH_DLL_PUBLIC"
 sort_by = "None"
-
-[export]
-# Remove this when https://github.com/eqrion/cbindgen/pull/314 is published
-exclude = ["NSEC_FACTOR"]

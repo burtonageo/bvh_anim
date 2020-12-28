@@ -1086,15 +1086,3 @@ impl IndexMut<&Channel> for Frame {
         self.0.index_mut(channel.motion_index)
     }
 }
-
-const NSEC_FACTOR: f64 = 1000_000_000.0;
-
-#[inline]
-fn fraction_seconds_to_duration(x: f64) -> Duration {
-    Duration::from_nanos((x * NSEC_FACTOR) as u64)
-}
-
-#[inline]
-fn duation_to_fractional_seconds(duration: &Duration) -> f64 {
-    duration.subsec_nanos() as f64 / NSEC_FACTOR
-}

@@ -13,7 +13,7 @@
 //! [`Bvh::into_ffi`]: struct.Bvh.html#method.into_ffi
 
 use crate::{
-    duation_to_fractional_seconds, fraction_seconds_to_duration, frames_iter_logic,
+    duation_to_fractional_seconds, frames_iter_logic,
     joint::{JointData, JointName, JointPrivateData},
     Bvh, Channel, ChannelType,
 };

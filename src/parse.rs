@@ -2,13 +2,14 @@
 
 use crate::{
     errors::{LoadJointsError, LoadMotionError},
-    fraction_seconds_to_duration,
     joint::{JointData, JointName},
     Axis, Bvh, Channel, ChannelType, EnumeratedLines,
 };
 use bstr::ByteSlice;
 use lexical::parse;
 use mint::Vector3;
+use std::time::Duration;
+
 /*
 use nom::{
     alt, char, delimited, digit, do_parse, map, map_res, named, opt, pair, recognize, space, tag,
@@ -204,7 +205,7 @@ tag!("Frame") >>
 tag!("Time") >>
 char!(':') >>
 frame_time: unsigned_float >>
-(fraction_seconds_to_duration(frame_time), num_frames as usize)
+(Duration::from_secs_f64(frame_time), num_frames as usize)
 ))
 }
 
@@ -575,7 +576,7 @@ impl Bvh {
                                 line: line_num,
                             }
                         })?;
-                        Ok(fraction_seconds_to_duration(frame_time_secs))
+                        Ok(Duration::from_secs_f64(frame_time_secs))
                     } else {
                         Err(LoadMotionError::MissingFrameTime {
                             parse_error: None,

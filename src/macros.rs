@@ -1,4 +1,5 @@
-use crate::{fraction_seconds_to_duration, joint::JointData, Bvh, Channel, ChannelType};
+use crate::{joint::JointData, Bvh, Channel, ChannelType};
+use std::time::Duration;
 
 #[doc(hidden)]
 #[macro_export]
@@ -481,7 +482,7 @@ impl BvhLiteralBuilder {
     #[inline]
     pub fn set_frame_time(&mut self, frame_time_secs: f64) {
         self.bvh
-            .set_frame_time(fraction_seconds_to_duration(frame_time_secs));
+            .set_frame_time(Duration::from_secs_f64(frame_time_secs));
     }
 
     #[inline]
