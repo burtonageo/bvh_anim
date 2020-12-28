@@ -7,15 +7,18 @@ use crate::{
     Axis, Bvh, Channel, ChannelType, EnumeratedLines,
 };
 use bstr::ByteSlice;
-use lexical::{parse, try_parse};
+use lexical::parse;
 use mint::Vector3;
+/*
 use nom::{
     alt, char, delimited, digit, do_parse, map, map_res, named, opt, pair, recognize, space, tag,
-    take_while, try_parse, ws, Err as NomErr, IResult,
+    take_while, parse, ws, Err as NomErr, IResult,
 };
+*/
 use smallvec::{smallvec, SmallVec};
 use std::{convert::TryFrom, mem, str};
 
+/*
 named! {
     unsigned_float(&[u8]) -> f64,
     map!(
@@ -103,6 +106,7 @@ named! {
         )
     )
 }
+*/
 /*
 fn heirarchy<'a>(data: &'a [u8]) -> IResult<&'a [u8], Vec<JointData>> {
     let mut joints = Vec::new();
@@ -171,7 +175,7 @@ fn heirarchy<'a>(data: &'a [u8]) -> IResult<&'a [u8], Vec<JointData>> {
     };
 
     /*
-    try_parse!(data,
+    parse!(data,
         do_parse!(
             tag!("HIERARCHY") >>
             opt!(
@@ -385,13 +389,12 @@ impl Bvh {
                     macro_rules! parse_axis {
                         ($axis_field:ident, $axis_enum:ident) => {
                             if let Some(tok) = tokens.next() {
-                                offset.$axis_field = try_parse(tok).map_err(|e| {
-                                    LoadJointsError::ParseOffsetError {
+                                offset.$axis_field =
+                                    parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
                                         parse_float_error: e,
                                         axis: Axis::$axis_enum,
                                         line: line_num,
-                                    }
-                                })?;
+                                    })?;
                             } else {
                                 return Err(LoadJointsError::MissingOffsetAxis {
                                     axis: Axis::$axis_enum,
@@ -418,7 +421,7 @@ impl Bvh {
                             error: None,
                             line: line_num,
                         })
-                        .and_then(|tok| match try_parse(tok) {
+                        .and_then(|tok| match parse(tok) {
                             Ok(c) => Ok(c),
                             Err(e) => Err(LoadJointsError::ParseNumChannelsError {
                                 error: Some(e),
@@ -510,7 +513,7 @@ impl Bvh {
 
                 let parse_num_frames = |token: Option<&[u8]>| {
                     if let Some(num_frames) = token.and_then(|b| str::from_utf8(b).ok()) {
-                        try_parse::<usize, _>(num_frames)
+                        parse::<usize, _>(num_frames)
                             .map_err(|e| LoadMotionError::MissingNumFrames {
                                 parse_error: Some(e),
                                 line: line_num,
@@ -566,7 +569,7 @@ impl Bvh {
 
                 let parse_frame_time = |token: Option<&[u8]>| {
                     if let Some(frame_time) = token {
-                        let frame_time_secs = try_parse::<f64, _>(frame_time).map_err(|e| {
+                        let frame_time_secs = parse::<f64, _>(frame_time).map_err(|e| {
                             LoadMotionError::MissingFrameTime {
                                 parse_error: Some(e),
                                 line: line_num,
@@ -599,13 +602,12 @@ impl Bvh {
             let line = line?;
             let tokens = line.fields();
             for (channel_index, token) in tokens.enumerate() {
-                let motion = try_parse::<f32, _>(token).map_err(|e| {
-                    LoadMotionError::ParseMotionSection {
+                let motion =
+                    parse::<f32, _>(token).map_err(|e| LoadMotionError::ParseMotionSection {
                         parse_error: e,
                         channel_index,
                         line: line_num,
-                    }
-                })?;
+                    })?;
                 self.motion_values.push(motion);
             }
         }

@@ -3,7 +3,7 @@
 mod arcball_camera;
 
 use arcball_camera::ArcBall;
-use bvh_anim::{Bvh, JointData};
+use bvh_anim::Bvh;
 use gl::{self, types::*};
 use glutin::{
     dpi::LogicalSize, ContextBuilder, DeviceEvent, ElementState, Event, EventsLoop, KeyboardInput,
@@ -241,9 +241,7 @@ fn main() {
                 }
                 DeviceEvent::MouseMotion {
                     delta: (ref mx, ref my),
-                }
-                    if is_mouse_down =>
-                {
+                } if is_mouse_down => {
                     arcball.on_mouse_move(*mx as f32, *my as f32);
                 }
                 _ => {}

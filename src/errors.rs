@@ -183,27 +183,20 @@ impl fmt::Display for LoadJointsError {
                 "{}: unexpectedly encountered a \"CHANNELS\" section",
                 line
             ),
-            LoadJointsError::ParseNumChannelsError { ref error, line } => match error {
-                Some(ref e) => write!(f, "{}: could not parse the number of channels: {}", line, e),
-                None => write!(f, "{}: could not find the number of channels", line),
-            },
-            LoadJointsError::ParseChannelError { ref error, line } => {
-                write!(f, "{}: could not parse channel: {}", line, error)
+            LoadJointsError::ParseNumChannelsError { line, .. } => {
+                write!(f, "{}: could not find the number of channels", line)
+            }
+            LoadJointsError::ParseChannelError { line, .. } => {
+                write!(f, "{}: could not parse channel", line)
             }
             LoadJointsError::UnexpectedOffsetSection { line } => write!(
                 f,
                 "{}: unexpectedly encountered an \"OFFSET\" section",
                 line
             ),
-            LoadJointsError::ParseOffsetError {
-                ref parse_float_error,
-                axis,
-                line,
-            } => write!(
-                f,
-                "{}: could not parse the {}-axis offset: {}",
-                line, axis, parse_float_error
-            ),
+            LoadJointsError::ParseOffsetError { axis, line, .. } => {
+                write!(f, "{}: could not parse the {}-axis offset", line, axis,)
+            }
             LoadJointsError::MissingOffsetAxis { axis, line } => {
                 write!(f, "{}: the {}-axis offset value is missing", line, axis)
             }
@@ -216,14 +209,18 @@ impl StdError for LoadJointsError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadJointsError::Io(ref e) => Some(e),
+            /*
             LoadJointsError::ParseNumChannelsError { ref error, .. } => {
                 error.as_ref().map(|e| e as &(dyn StdError + 'static))
             }
+            */
             LoadJointsError::ParseChannelError { ref error, .. } => Some(error),
+            /*
             LoadJointsError::ParseOffsetError {
                 ref parse_float_error,
                 ..
             } => Some(parse_float_error),
+            */
             _ => None,
         }
     }
@@ -303,21 +300,21 @@ impl fmt::Display for LoadMotionError {
                 write!(fmtr, "{}: The 'MOTION' section of the bvh file is missing", line)
             }
             LoadMotionError::MissingNumFrames { ref parse_error, line } => {
-                if let Some(ref e) = parse_error {
-                    write!(fmtr, "{}: could not parse the num frames value: {}", line, e)
+                if let Some(_) = parse_error {
+                    write!(fmtr, "{}: could not parse the num frames value", line)
                 } else {
                     write!(fmtr, "{}: The number of frames section is missing from the bvh file", line)
                 }
             }
             LoadMotionError::MissingFrameTime { ref parse_error, line } => {
-                if let Some(ref e) = parse_error {
-                    write!(fmtr, "{}: could not parse the frame time: {}", line, e)
+                if let Some(_) = parse_error {
+                    write!(fmtr, "{}: could not parse the frame time", line)
                 } else {
                     write!(fmtr, "{}: Could not parse the frame time", line)
                 }
             }
-            LoadMotionError::ParseMotionSection { ref parse_error, line, .. } => {
-                write!(fmtr, "{}: Could not parse the motion value ({})", line, parse_error)
+            LoadMotionError::ParseMotionSection { line, .. } => {
+                write!(fmtr, "{}: Could not parse the motion value", line)
             }
             LoadMotionError::MotionCountMismatch  {
                 actual_total_motion_values,
@@ -342,6 +339,7 @@ impl StdError for LoadMotionError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match *self {
             LoadMotionError::Io(ref e) => Some(e),
+            /*
             LoadMotionError::MissingFrameTime {
                 parse_error: Some(ref e),
                 ..
@@ -353,6 +351,7 @@ impl StdError for LoadMotionError {
                 parse_error: Some(ref e),
                 ..
             } => Some(e),
+            */
             _ => None,
         }
     }
