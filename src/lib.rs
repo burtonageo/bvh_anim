@@ -812,10 +812,7 @@ impl ChannelType {
     ///
     /// [`Axis::vector`]: enum.Axis.html#method.vector
     #[inline]
-    // @TODO: remove `Clone` bound when
-    // https://github.com/kvark/mint/commit/8c6c501e442152e776a17322dff10e723bf0eeda
-    // is published
-    pub fn axis_vector<T: Clone + One + Zero>(&self) -> Vector3<T> {
+    pub fn axis_vector<T: One + Zero>(&self) -> Vector3<T> {
         self.axis().vector::<T>()
     }
 
@@ -902,10 +899,7 @@ impl Axis {
     /// assert_eq!(Axis::Z.vector(), [0.0, 0.0, 1.0].into());
     /// ```
     #[inline]
-    // @TODO: remove `Clone` bound when
-    // https://github.com/kvark/mint/commit/8c6c501e442152e776a17322dff10e723bf0eeda
-    // is published
-    pub fn vector<T: Clone + One + Zero>(&self) -> Vector3<T> {
+    pub fn vector<T: One + Zero>(&self) -> Vector3<T> {
         let (_1, _0) = (one, zero);
         match *self {
             Axis::X => [_1(), _0(), _0()].into(),
