@@ -291,22 +291,32 @@ impl LoadMotionError {
 impl fmt::Display for LoadMotionError {
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            LoadMotionError::Io(ref e) => {
-                fmt::Display::fmt(e, fmtr)
-            }
-            LoadMotionError::MissingMotionSection {
+            LoadMotionError::Io(ref e) => fmt::Display::fmt(e, fmtr),
+            LoadMotionError::MissingMotionSection { line } => {
+                write!(
+                    fmtr,
+                    "{}: The 'MOTION' section of the bvh file is missing",
                 line
-            } => {
-                write!(fmtr, "{}: The 'MOTION' section of the bvh file is missing", line)
+                )
             }
-            LoadMotionError::MissingNumFrames { ref parse_error, line } => {
+            LoadMotionError::MissingNumFrames {
+                ref parse_error,
+                line,
+            } => {
                 if let Some(_) = parse_error {
                     write!(fmtr, "{}: could not parse the num frames value", line)
                 } else {
-                    write!(fmtr, "{}: The number of frames section is missing from the bvh file", line)
+                    write!(
+                        fmtr,
+                        "{}: The number of frames section is missing from the bvh file",
+                        line
+                    )
                 }
             }
-            LoadMotionError::MissingFrameTime { ref parse_error, line } => {
+            LoadMotionError::MissingFrameTime {
+                ref parse_error,
+                line,
+            } => {
                 if let Some(_) = parse_error {
                     write!(fmtr, "{}: could not parse the frame time", line)
                 } else {
@@ -316,7 +326,7 @@ impl fmt::Display for LoadMotionError {
             LoadMotionError::ParseMotionSection { line, .. } => {
                 write!(fmtr, "{}: Could not parse the motion value", line)
             }
-            LoadMotionError::MotionCountMismatch  {
+            LoadMotionError::MotionCountMismatch {
                 actual_total_motion_values,
                 expected_total_motion_values,
                 expected_num_frames,
