@@ -389,7 +389,13 @@ macro_rules! bvh {
             builder.set_num_frames($num_frames as usize);
             builder.set_frame_time(f64::from($frame_time));
 
-            builder.set_motion_values(vec![ $( f32::from($motion) ),+ ]);
+            let nchannels = builder.bvh.num_channels();
+
+            builder
+                .bvh
+                .frame_cursor()
+                .try_insert_frames([ $( f32::from($motion) ),+ ].chunks(nchannels))
+                .expect("Could not create bvh type from macro literal");
 
             assert!(builder.check_valid_motion());
 
@@ -415,7 +421,6 @@ pub struct BvhLiteralBuilder {
     pub encountered_motion: bool,
     pub encountered_num_frames: bool,
     pub encountered_frame_time: bool,
-    pub num_frames: usize,
 }
 
 #[doc(hidden)]
@@ -487,12 +492,7 @@ impl BvhLiteralBuilder {
 
     #[inline]
     pub fn set_num_frames(&mut self, num_frames: usize) {
-        self.num_frames = num_frames;
         self.bvh.num_channels = self.current_channel_index;
-        self.bvh.num_frames = self.num_frames;
-        self.bvh
-            .motion_values
-            .reserve(self.current_channel_index * self.num_frames);
     }
 
     #[inline]

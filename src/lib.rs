@@ -208,8 +208,11 @@ pub mod write;
 
 mod joint;
 mod parse;
+mod frame_cursor;
 
-use crate::joint::JointData;
+use crate::{
+    joint::JointData,
+};
 use bstr::{
     io::{BufReadExt, ByteLines},
     BStr, BString, ByteSlice,
@@ -230,6 +233,7 @@ use std::{
 pub use joint::{Joint, JointMut, Joints, JointsMut};
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
+pub use frame_cursor::FrameCursor;
 
 use errors::{LoadError, ParseChannelError, SetMotionError};
 
@@ -629,6 +633,12 @@ impl Bvh {
     #[inline]
     pub fn set_frame_time(&mut self, new_frame_time: Duration) {
         self.frame_time = new_frame_time;
+    }
+
+    /// Create a new `FrameCursor` for inserting and removing frames.
+    #[inline]
+    pub fn frame_cursor(&mut self) -> FrameCursor<'_> {
+        From::from(self)
     }
 }
 

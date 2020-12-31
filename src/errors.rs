@@ -296,7 +296,7 @@ impl fmt::Display for LoadMotionError {
                 write!(
                     fmtr,
                     "{}: The 'MOTION' section of the bvh file is missing",
-                line
+                    line
                 )
             }
             LoadMotionError::MissingNumFrames {
@@ -446,3 +446,61 @@ impl fmt::Display for ParseChannelError {
 }
 
 impl StdError for ParseChannelError {}
+
+#[derive(Debug)]
+pub struct FrameInsertError {
+    kind: FrameInsertErrorKind,
+}
+
+impl FrameInsertError {
+    pub(crate) const fn incorrect_len(expected: usize, actual: usize) -> Self {
+        Self {
+            kind: FrameInsertErrorKind::IncorrectFrameLength { expected, actual },
+        }
+    }
+}
+
+impl fmt::Display for FrameInsertError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.kind {
+            FrameInsertErrorKind::IncorrectFrameLength { expected, actual } => {
+                write!(
+                    f,
+                    "Attempted to insert a frame with {} channels into a bvh containing {} channels",
+                    actual,
+                    expected,
+                )
+            }
+        }
+    }
+}
+
+impl StdError for FrameInsertError {}
+
+#[derive(Debug)]
+enum FrameInsertErrorKind {
+    IncorrectFrameLength { expected: usize, actual: usize },
+}
+
+#[derive(Debug)]
+pub struct FrameRemoveError {
+    index: usize,
+}
+
+impl FrameRemoveError {
+    pub(crate) const fn new(index: usize) -> Self {
+        Self { index }
+    }
+}
+
+impl fmt::Display for FrameRemoveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Attempted to remove a frame at index {} which does not exist",
+            self.index
+        )
+    }
+}
+
+impl StdError for FrameRemoveError {}
