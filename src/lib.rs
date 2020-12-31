@@ -198,7 +198,6 @@
 #[macro_use]
 mod macros;
 
-pub mod builder;
 pub mod errors;
 
 #[cfg(feature = "ffi")]
@@ -206,9 +205,9 @@ pub mod ffi;
 
 pub mod write;
 
+mod frame_cursor;
 mod joint;
 mod parse;
-mod frame_cursor;
 
 use crate::{
     joint::JointData,
