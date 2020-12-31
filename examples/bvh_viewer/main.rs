@@ -1,5 +1,5 @@
 #![allow(unused)]
-
+/*
 mod arcball_camera;
 
 use arcball_camera::ArcBall;
@@ -288,3 +288,7 @@ fn main() {
         context.swap_buffers().expect("Could not swap buffers");
     }
 }
+
+*/
+
+fn main() {}
