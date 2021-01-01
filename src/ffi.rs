@@ -104,7 +104,9 @@ assert_eq_size!(bvh_BvhFile, Bvh);
 assert_eq_align!(bvh_BvhFile, Bvh);
 
 impl bvh_BvhFile {
-    const ZERO_BVH: Self = Self { __bvh_internals: [0u8; 80] };
+    const ZERO_BVH: Self = Self {
+        __bvh_internals: [0u8; 80],
+    };
 
     #[inline]
     fn from_bvh(bvh: Bvh) -> Self {
