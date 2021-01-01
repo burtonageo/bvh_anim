@@ -11,7 +11,7 @@ use std::cmp::min;
 ///
 /// You can create a `FrameCursor` using the [`Bvh::frame_cursor`] method.
 ///
-/// [`Bvh`]: ../struct.Bvh.html
+/// [`Bvh`]: ./struct.Bvh.html
 /// [`linked_list::Cursor`]: http://doc.rust-lang.org/stable/std/collections/linked_list/struct.Cursor.html
 /// [`Bvh::frame_cursor`]: ./struct.Bvh.html#method.frame_cursor
 #[derive(Debug)]
@@ -30,7 +30,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// Returns the number of frames in the [`Bvh`] the cursor is is currently
     /// pointing to.
     ///
-    /// [`Bvh`]: ../struct.Bvh.html
+    /// [`Bvh`]: ./struct.Bvh.html
     #[inline]
     pub const fn num_frames(&self) -> usize {
         self.bvh.num_frames
@@ -39,7 +39,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// Returns the number of channels in the [`Bvh`] the cursor is is currently
     /// pointing to.
     ///
-    /// [`Bvh`]: ../struct.Bvh.html
+    /// [`Bvh`]: ./struct.Bvh.html
     #[inline]
     pub const fn num_channels(&self) -> usize {
         self.bvh.num_channels
@@ -145,36 +145,37 @@ impl<'bvh> FrameCursor<'bvh> {
     ///     HIERARCHY
     ///     ROOT Base
     ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         JOINT Middle1
-    ///         {
-    ///             OFFSET 0.0 0.0 15.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             JOINT Tip1
-    ///             {
-    ///                 OFFSET 0.0 0.0 30.0
-    ///                 CHANNELS 3 Zrotation Xrotation Yrotation
-    ///                 End Site
-    ///                 {
-    ///                     OFFSET 0.0 0.0 45.0
-    ///                 }
-    ///             }
-    ///         }
-    ///         JOINT Middle2
-    ///         {
-    ///             OFFSET 0.0 15.0 0.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             JOINT Tip2
-    ///             {
-    ///                 OFFSET 0.0 30.0 0.0
-    ///                 CHANNELS 3 Zrotation Xrotation Yrotation
-    ///                 End Site
-    ///                 {
-    ///                     OFFSET 0.0 45.0 0.0
-    ///                 }
-    ///             }
-    ///         }
+    ///         // Hierarchy omitted...
+    ///     #     OFFSET 0.0 0.0 0.0
+    ///     #     CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///     #     JOINT Middle1
+    ///     #     {
+    ///     #         OFFSET 0.0 0.0 15.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip1
+    ///     #         {
+    ///     #             OFFSET 0.0 0.0 30.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 0.0 45.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
+    ///     #     JOINT Middle2
+    ///     #     {
+    ///     #         OFFSET 0.0 15.0 0.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip2
+    ///     #         {
+    ///     #             OFFSET 0.0 30.0 0.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 45.0 0.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
     ///     }
     ///
     ///     MOTION
@@ -191,9 +192,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// assert_eq!(frame_cursor.index(), 3);
     ///
     /// frame_cursor
-    ///     .try_insert_frame(&[
-    ///         3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0,
-    ///     ])
+    ///     .try_insert_frame(&[3.0; 18])
     ///     .expect("Could not insert frame");
     ///
     /// assert_eq!(frame_cursor.index(), 4);
@@ -223,9 +222,7 @@ impl<'bvh> FrameCursor<'bvh> {
         vec_insert_slice(&mut self.bvh.motion_values, idx, frame);
 
         self.bvh.num_frames += 1;
-        self.move_next();
-
-        Ok(self)
+        Ok(self.move_next())
     }
 
     /// Insert multiple frames contiguously at the current index. This is generally more
@@ -248,36 +245,37 @@ impl<'bvh> FrameCursor<'bvh> {
     ///     HIERARCHY
     ///     ROOT Base
     ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         JOINT Middle1
-    ///         {
-    ///             OFFSET 0.0 0.0 15.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             JOINT Tip1
-    ///             {
-    ///                 OFFSET 0.0 0.0 30.0
-    ///                 CHANNELS 3 Zrotation Xrotation Yrotation
-    ///                 End Site
-    ///                 {
-    ///                     OFFSET 0.0 0.0 45.0
-    ///                 }
-    ///             }
-    ///         }
-    ///         JOINT Middle2
-    ///         {
-    ///             OFFSET 0.0 15.0 0.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             JOINT Tip2
-    ///             {
-    ///                 OFFSET 0.0 30.0 0.0
-    ///                 CHANNELS 3 Zrotation Xrotation Yrotation
-    ///                 End Site
-    ///                 {
-    ///                     OFFSET 0.0 45.0 0.0
-    ///                 }
-    ///             }
-    ///         }
+    ///         // Hierarchy omitted...
+    ///     #     OFFSET 0.0 0.0 0.0
+    ///     #     CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///     #     JOINT Middle1
+    ///     #     {
+    ///     #         OFFSET 0.0 0.0 15.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip1
+    ///     #         {
+    ///     #             OFFSET 0.0 0.0 30.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 0.0 45.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
+    ///     #     JOINT Middle2
+    ///     #     {
+    ///     #         OFFSET 0.0 15.0 0.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip2
+    ///     #         {
+    ///     #             OFFSET 0.0 30.0 0.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 45.0 0.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
     ///     }
     ///
     ///     MOTION
@@ -291,14 +289,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// simple_skeleton
     ///     .frame_cursor()
     ///     .move_last()
-    ///     .try_insert_frames(&[
-    ///         &[
-    ///             3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0,
-    ///         ],
-    ///         &[
-    ///             4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0,
-    ///         ],
-    ///     ])
+    ///     .try_insert_frames(&[[3.0; 18], [4.0; 18]])
     ///     .expect("Could not insert frames");
     ///
     /// assert_eq!(simple_skeleton.num_frames(), 5);
@@ -349,36 +340,37 @@ impl<'bvh> FrameCursor<'bvh> {
     ///     HIERARCHY
     ///     ROOT Base
     ///     {
-    ///         OFFSET 0.0 0.0 0.0
-    ///         CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-    ///         JOINT Middle1
-    ///         {
-    ///             OFFSET 0.0 0.0 15.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             JOINT Tip1
-    ///             {
-    ///                 OFFSET 0.0 0.0 30.0
-    ///                 CHANNELS 3 Zrotation Xrotation Yrotation
-    ///                 End Site
-    ///                 {
-    ///                     OFFSET 0.0 0.0 45.0
-    ///                 }
-    ///             }
-    ///         }
-    ///         JOINT Middle2
-    ///         {
-    ///             OFFSET 0.0 15.0 0.0
-    ///             CHANNELS 3 Zrotation Xrotation Yrotation
-    ///             JOINT Tip2
-    ///             {
-    ///                 OFFSET 0.0 30.0 0.0
-    ///                 CHANNELS 3 Zrotation Xrotation Yrotation
-    ///                 End Site
-    ///                 {
-    ///                     OFFSET 0.0 45.0 0.0
-    ///                 }
-    ///             }
-    ///         }
+    ///         // Hierarchy omitted...
+    ///     #     OFFSET 0.0 0.0 0.0
+    ///     #     CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///     #     JOINT Middle1
+    ///     #     {
+    ///     #         OFFSET 0.0 0.0 15.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip1
+    ///     #         {
+    ///     #             OFFSET 0.0 0.0 30.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 0.0 45.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
+    ///     #     JOINT Middle2
+    ///     #     {
+    ///     #         OFFSET 0.0 15.0 0.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip2
+    ///     #         {
+    ///     #             OFFSET 0.0 30.0 0.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 45.0 0.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
     ///     }
     ///
     ///     MOTION
