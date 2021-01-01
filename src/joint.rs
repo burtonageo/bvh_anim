@@ -41,7 +41,7 @@ pub(crate) enum JointData {
 
 impl JointData {
     #[inline]
-    pub(crate) fn is_root(&self) -> bool {
+    pub(crate) const fn is_root(&self) -> bool {
         match *self {
             JointData::Root { .. } => true,
             _ => false,
@@ -49,7 +49,7 @@ impl JointData {
     }
 
     #[inline]
-    pub(crate) fn is_child(&self) -> bool {
+    pub(crate) const fn is_child(&self) -> bool {
         match *self {
             JointData::Child { .. } => true,
             _ => false,
@@ -66,14 +66,14 @@ impl JointData {
     }
 
     #[inline]
-    pub(crate) fn offset(&self) -> &Vector3<f32> {
+    pub(crate) const fn offset(&self) -> &Vector3<f32> {
         match *self {
             JointData::Child { ref offset, .. } | JointData::Root { ref offset, .. } => offset,
         }
     }
 
     #[inline]
-    pub(crate) fn end_site(&self) -> Option<&Vector3<f32>> {
+    pub(crate) const fn end_site(&self) -> Option<&Vector3<f32>> {
         match *self {
             JointData::Child {
                 ref end_site_offset,
@@ -118,7 +118,7 @@ impl JointData {
     /// Returns a reference to the `JointPrivateData` of the `JointData` if it
     /// exists, or `None`.
     #[inline]
-    pub(crate) fn private_data(&self) -> Option<&JointPrivateData> {
+    pub(crate) const fn private_data(&self) -> Option<&JointPrivateData> {
         match *self {
             JointData::Child { ref private, .. } => Some(private),
             _ => None,
@@ -127,7 +127,7 @@ impl JointData {
 
     /// Get the depth of the `JointData` in the heirarchy.
     #[inline]
-    pub(crate) fn depth(&self) -> usize {
+    pub(crate) const fn depth(&self) -> usize {
         match *self {
             JointData::Child { ref private, .. } => private.depth,
             _ => 0,
@@ -414,8 +414,7 @@ impl fmt::Debug for Joints<'_> {
 
 impl<'a> Joints<'a> {
     /// Create a `Joints` iterator over all the `joints` in a `Bvh` file.
-    pub(crate) fn iter_root(joints: &'a [JointData], //clips: &'a AtomicRefCell<Clips>
-    ) -> Self {
+    pub(crate) const fn iter_root(joints: &'a [JointData]) -> Self {
         Joints {
             joints,
             // clips,
@@ -498,9 +497,7 @@ pub struct JointsMut<'a> {
 }
 
 impl<'a> JointsMut<'a> {
-    pub(crate) fn iter_root(
-        joints: &'a mut [JointData], //clips: &'a AtomicRefCell<Clips>
-    ) -> Self {
+    pub(crate) fn iter_root(joints: &'a mut [JointData]) -> Self {
         JointsMut {
             joints,
             // clips,
@@ -579,7 +576,7 @@ impl Joint<'_> {
     /// assert!(root.is_root());
     /// ```
     #[inline]
-    pub fn is_root(&self) -> bool {
+    pub const fn is_root(&self) -> bool {
         self.data().is_root()
     }
 
@@ -616,7 +613,7 @@ impl Joint<'_> {
     /// }
     /// ```
     #[inline]
-    pub fn is_child(&self) -> bool {
+    pub const fn is_child(&self) -> bool {
         self.data().is_child()
     }
 
@@ -678,7 +675,7 @@ impl Joint<'_> {
     /// assert_eq!(root.offset(), &[1.2, 3.4, 5.6].into());
     /// ```
     #[inline]
-    pub fn offset(&self) -> &Vector3<f32> {
+    pub const fn offset(&self) -> &Vector3<f32> {
         self.data().offset()
     }
 
@@ -718,16 +715,16 @@ impl Joint<'_> {
     /// assert_eq!(tip.end_site(), Some([5.4, 3.2, 1.0].into()).as_ref());
     /// ```
     #[inline]
-    pub fn end_site(&self) -> Option<&Vector3<f32>> {
+    pub const fn end_site(&self) -> Option<&Vector3<f32>> {
         self.data().end_site()
     }
 
     /// Returns `true` if the `Joint` has an `end_site_offset`, or `false` if it doesn't.
     #[inline]
-    pub fn has_end_site(&self) -> bool {
+    pub const fn has_end_site(&self) -> bool {
         self.end_site().is_some()
     }
-
+ 
     /// Returns the ordered array of `Channel`s of this `JointData`.
     ///
     /// # Examples
@@ -776,7 +773,7 @@ impl Joint<'_> {
     }
 
     #[inline]
-    pub fn index(&self) -> usize {
+    pub const fn index(&self) -> usize {
         self.index
     }
 
@@ -802,7 +799,7 @@ impl Joint<'_> {
 
     /// Access a read-only view of the internal data of the `Joint`.
     #[inline]
-    pub(crate) fn data(&self) -> &JointData {
+    pub(crate) const fn data(&self) -> &JointData {
         &self.joints[self.index]
     }
 }
