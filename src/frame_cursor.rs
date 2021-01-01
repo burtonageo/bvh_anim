@@ -412,6 +412,81 @@ impl<'bvh> FrameCursor<'bvh> {
 
         Ok(self)
     }
+
+    /// Removes every frame in the [`Bvh`].
+    //
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() {
+    /// # use bvh_anim::bvh;
+    /// let mut simple_skeleton = bvh! {
+    ///     HIERARCHY
+    ///     ROOT Base
+    ///     {
+    ///         // Hierarchy omitted...
+    ///     #     OFFSET 0.0 0.0 0.0
+    ///     #     CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+    ///     #     JOINT Middle1
+    ///     #     {
+    ///     #         OFFSET 0.0 0.0 15.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip1
+    ///     #         {
+    ///     #             OFFSET 0.0 0.0 30.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 0.0 45.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
+    ///     #     JOINT Middle2
+    ///     #     {
+    ///     #         OFFSET 0.0 15.0 0.0
+    ///     #         CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #         JOINT Tip2
+    ///     #         {
+    ///     #             OFFSET 0.0 30.0 0.0
+    ///     #             CHANNELS 3 Zrotation Xrotation Yrotation
+    ///     #             End Site
+    ///     #             {
+    ///     #                 OFFSET 0.0 45.0 0.0
+    ///     #             }
+    ///     #         }
+    ///     #     }
+    ///     }
+    ///
+    ///     MOTION
+    ///     Frames: 3
+    ///     Frame Time: 0.033333333333
+    ///     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
+    ///     1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+    ///     2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0
+    /// };
+    ///
+    /// let mut frame_cursor = simple_skeleton.frame_cursor();
+    /// assert_eq!(frame_cursor.num_frames(), 3);
+    /// frame_cursor.remove_all_frames();
+    /// assert_eq!(frame_cursor.num_frames(), 0);
+    /// # } // fn main()
+    /// ```
+    ///
+    /// [`Bvh`]: ./struct.Bvh.html
+    #[inline]
+    pub fn remove_all_frames(&mut self) -> &mut Self {
+        self.bvh.motion_values.clear();
+        self.bvh.num_frames = 0;
+        self
+    }
+
+    /// Shrinks the capacity of the motion values in the [`Bvh`] as much as possible.
+    ///
+    /// [`Bvh`]: ./struct.Bvh.html
+    #[inline]
+    pub fn shrink_to_fit(&mut self) {
+        self.bvh.motion_values.shrink_to_fit();
+    }
 }
 
 impl<'bvh> From<&'bvh mut Bvh> for FrameCursor<'bvh> {
