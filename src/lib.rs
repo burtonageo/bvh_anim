@@ -200,9 +200,6 @@ mod macros;
 
 pub mod errors;
 
-#[cfg(feature = "ffi")]
-pub mod ffi;
-
 pub mod write;
 
 mod frame_cursor;
