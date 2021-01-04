@@ -232,7 +232,6 @@ pub use frame_cursor::FrameCursor;
 pub use frame_iter::{Frames, FramesMut, Frame, FrameMut};
 
 pub use joint::{Joint, JointMut, Joints, JointsMut};
-pub use joint_cursor::JointCursor;
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
 
