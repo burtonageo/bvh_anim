@@ -15,8 +15,7 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#![allow(warnings)]
-#![warn(unused_imports, missing_docs)]
+#![warn(missing_docs)]
 #![deny(bare_trait_objects, unsafe_code)]
 
 //! # About this library
@@ -222,8 +221,7 @@ use std::{
     fmt,
     io::{self, Cursor, Write},
     iter::Enumerate,
-    mem,
-    ops::{Index, IndexMut, Range},
+    ops::Index,
     str::{self, FromStr},
     time::Duration,
 };

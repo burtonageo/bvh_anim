@@ -108,11 +108,19 @@ impl<'bvh> FrameCursor<'bvh> {
         }
     }
 
+    /// Returns a mutable reference to the frame next to the current
+    /// index of the `FrameCursor`.
+    ///
+    /// Returns `None` if there is no frame available.
     #[inline]
     pub fn peek_next_mut(&mut self) -> Option<FrameMut<'_>> {
         self.bvh.frames_mut().nth(self.index)
     }
 
+    /// Returns a mutable reference to the frame before the current index
+    /// of the `FrameCursor`.
+    ///
+    /// Returns `None` if there is no frame available.
     #[inline]
     pub fn peek_prev_mut(&mut self) -> Option<FrameMut<'_>> {
         if self.index() > 0 {
@@ -221,7 +229,7 @@ impl<'bvh> FrameCursor<'bvh> {
             ));
         }
 
-        let idx = (self.index * self.num_channels());
+        let idx = self.index * self.num_channels();
         vec_insert_slice(&mut self.bvh.motion_values, idx, frame);
 
         self.bvh.num_frames += 1;
@@ -404,7 +412,7 @@ impl<'bvh> FrameCursor<'bvh> {
         }
 
         let bnd = |idx| idx * self.num_channels();
-        let frame_bound = (bnd(self.index)..bnd(self.index + 1));
+        let frame_bound = bnd(self.index)..bnd(self.index + 1);
 
         let mut i = 0;
         self.bvh
@@ -497,7 +505,7 @@ impl<'bvh> FrameCursor<'bvh> {
     pub fn into_frames(self) -> Frames<'bvh> {
         // @TODO: Replace with `Iterator::advance_by` when stable.
         let mut frames = self.bvh.frames();
-        for _ in (0..self.index) {
+        for _ in 0..self.index {
             if frames.next().is_none() {
                 break;
             }
@@ -512,7 +520,7 @@ impl<'bvh> FrameCursor<'bvh> {
     pub fn into_frames_mut(self) -> FramesMut<'bvh> {
         // @TODO: Replace with `Iterator::advance_by` when stable.
         let mut frames = self.bvh.frames_mut();
-        for _ in (0..self.index) {
+        for _ in 0..self.index {
             if frames.next().is_none() {
                 break;
             }

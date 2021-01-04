@@ -1,11 +1,10 @@
 use crate::{Channel, errors::SetMotionError};
 use std::{
     borrow::{Borrow, BorrowMut},
-    fmt,
     iter::{DoubleEndedIterator, FusedIterator, Iterator, ExactSizeIterator},
     slice::{ChunksExact, ChunksExactMut},
     mem,
-    ops::{Deref, DerefMut, Index, IndexMut, Range},
+    ops::{Index, IndexMut},
 };
 
 /// An iterator over the frames of a `Bvh`.
@@ -23,7 +22,7 @@ impl<'a> Iterator for Frames<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.chunks.as_mut().and_then(|mut c| c.next().map(Frame))
+        self.chunks.as_mut().and_then(|c| c.next().map(Frame))
     }
 
     #[inline]
@@ -35,7 +34,7 @@ impl<'a> Iterator for Frames<'a> {
 impl<'a> DoubleEndedIterator for Frames<'a> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.chunks.as_mut().and_then(|mut c| c.next_back().map(Frame))
+        self.chunks.as_mut().and_then(|c| c.next_back().map(Frame))
     }
 }
 
@@ -62,7 +61,7 @@ impl<'a> Iterator for FramesMut<'a> {
     type Item = FrameMut<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.chunks.as_mut().and_then(|mut c| c.next().map(FrameMut))
+        self.chunks.as_mut().and_then(|c| c.next().map(FrameMut))
     }
 
     #[inline]
@@ -74,7 +73,7 @@ impl<'a> Iterator for FramesMut<'a> {
 impl<'a> DoubleEndedIterator for FramesMut<'a> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.chunks.as_mut().and_then(|mut c| c.next_back().map(FrameMut))
+        self.chunks.as_mut().and_then(|c| c.next_back().map(FrameMut))
     }
 }
 
@@ -187,6 +186,12 @@ impl<'a> FrameMut<'a> {
         self.0.get_mut(channel.borrow().motion_index)
     }
 
+    /// Updates the `motion` value at `channel` to `new_motion`.
+    ///
+    /// # Notes
+    ///
+    /// Returns toe previous motion value if the operation was successful, and `Err(_)` if
+    /// the operation was out of bounds.
     pub fn try_set_motion<C>(&mut self, channel: C, new_motion: f32) -> Result<f32, SetMotionError>
     where
         C: Borrow<Channel>,

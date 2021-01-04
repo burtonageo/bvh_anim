@@ -447,6 +447,8 @@ impl fmt::Display for ParseChannelError {
 
 impl StdError for ParseChannelError {}
 
+/// An error which may occur when attempting to insert a frame into a
+/// `Bvh`.
 #[derive(Debug)]
 pub struct FrameInsertError {
     kind: FrameInsertErrorKind,
@@ -482,6 +484,8 @@ enum FrameInsertErrorKind {
     IncorrectFrameLength { expected: usize, actual: usize },
 }
 
+/// An error which may occur when attempting to remove a frame from a
+/// `Bvh`.
 #[derive(Debug)]
 pub struct FrameRemoveError {
     index: usize,

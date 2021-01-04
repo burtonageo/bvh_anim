@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::Channel;
 use bstr::{BStr, BString, ByteSlice};
 use mint::Vector3;
@@ -9,7 +11,7 @@ use std::{
     iter::once,
     mem,
     ops::{Deref, DerefMut},
-    ptr, str,
+    str,
 };
 
 /// Internal representation of a joint.
@@ -110,6 +112,8 @@ impl JointData {
         self.private_data().map(|d| d.self_index).unwrap_or(0)
     }
 
+    /// Returns the index of this joint's parent in the `Bvh`'s array of joints,
+    /// or `None` if this `Joint` is the root joint.
     #[inline]
     pub fn parent_index(&self) -> Option<usize> {
         self.private_data().map(|d| d.parent_index)
@@ -772,11 +776,14 @@ impl Joint<'_> {
         self.data().channels()
     }
 
+    /// Returns the index of this joint in the `Bvh`'s array of joints.
     #[inline]
     pub const fn index(&self) -> usize {
         self.index
     }
 
+    /// Returns the index of this joint's parent in the `Bvh`'s array of joints,
+    /// or `None` if this `Joint` is the root joint.
     #[inline]
     pub fn parent_index(&self) -> Option<usize> {
         self.data().parent_index()
