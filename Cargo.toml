@@ -12,16 +12,6 @@ categories = ["rendering::data-formats"]
 license = "MIT"
 exclude = ["./fuzz", "./data"]
 
-[lib]
-crate-type = ["cdylib", "staticlib", "rlib"]
-
-[profile.release]
-panic = "abort"
-opt-level = 3
-codegen-units = 1
-lto = "fat"
-incremental = false
-
 [dependencies]
 bstr = "0.2"
 lexical = "5.2"
