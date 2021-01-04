@@ -355,7 +355,7 @@ macro_rules! bvh {
             parse_joints_internal!(builder ($($joints)*));
             builder.current_depth -= 1;
 
-            builder.set_num_frames(0);
+            builder.set_num_channels();
             builder.set_frame_time(f64::from($frame_time));
 
             builder.bvh
@@ -376,30 +376,29 @@ macro_rules! bvh {
         )+
     ) => {
         {
-            use $crate::parse_joints_internal;
+            use $crate::bvh;
 
-            let mut builder = $crate::BvhLiteralBuilder::default();
+            let mut new_bvh = bvh! {
+                HIERARCHY
+                ROOT $root_name
+                {
+                    $( $joints )*
+                }
+                MOTION
+                Frames: 0
+                Frame Time: $frame_time
+            };
 
-            builder.push_root(stringify!($root_name));
+            let num_channels = new_bvh.num_channels();
 
-            builder.current_depth += 1;
-            parse_joints_internal!(builder ($($joints)*));
-            builder.current_depth -= 1;
-
-            builder.set_num_frames($num_frames as usize);
-            builder.set_frame_time(f64::from($frame_time));
-
-            let nchannels = builder.bvh.num_channels();
-
-            builder
-                .bvh
+            new_bvh
                 .frame_cursor()
-                .try_insert_frames([ $( f32::from($motion) ),+ ].chunks(nchannels))
+                .try_insert_frames([ $( f32::from($motion) ),+ ].chunks(num_channels))
                 .expect("Could not create bvh type from macro literal");
 
-            assert!(builder.check_valid_motion());
+            assert_eq!(new_bvh.num_frames(), $num_frames as usize);
 
-            builder.bvh
+            new_bvh
         }
     };
 }
@@ -491,18 +490,8 @@ impl BvhLiteralBuilder {
     }
 
     #[inline]
-    pub fn set_num_frames(&mut self, num_frames: usize) {
+    pub fn set_num_channels(&mut self) {
         self.bvh.num_channels = self.current_channel_index;
-    }
-
-    #[inline]
-    pub fn set_motion_values(&mut self, motion_values: Vec<f32>) {
-        self.bvh.motion_values = motion_values;
-    }
-
-    #[inline]
-    pub fn check_valid_motion(&self) -> bool {
-        self.bvh.motion_values.len() == self.bvh.num_channels * self.bvh.num_frames
     }
 
     #[inline]
