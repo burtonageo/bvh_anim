@@ -395,7 +395,7 @@ enum WriteOptionsIterState<'a> {
     },
     WriteFrames {
         frames: Frames<'a>,
-        current_frame: Option<&'a Frame>,
+        current_frame: Option<Frame<'a>>,
     },
 }
 

@@ -1,4 +1,4 @@
-// Copyright © 2019 George Burton
+// Copyright © 2019-2020 George Burton
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software
 // and associated documentation files (the "Software"), to deal in the Software without restriction,
@@ -17,7 +17,7 @@
 
 #![allow(warnings)]
 #![warn(unused_imports, missing_docs)]
-#![deny(bare_trait_objects)]
+#![deny(bare_trait_objects, unsafe_code)]
 
 //! # About this library
 //!
@@ -203,6 +203,7 @@ pub mod errors;
 pub mod write;
 
 mod frame_cursor;
+mod frame_iter;
 mod joint;
 mod parse;
 
@@ -216,6 +217,7 @@ use bstr::{
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
 use std::{
+    borrow::Borrow,
     convert::TryFrom,
     fmt,
     io::{self, Cursor, Write},
@@ -226,10 +228,13 @@ use std::{
     time::Duration,
 };
 
+pub use frame_cursor::FrameCursor;
+pub use frame_iter::{Frames, FramesMut, Frame, FrameMut};
+
 pub use joint::{Joint, JointMut, Joints, JointsMut};
+pub use joint_cursor::JointCursor;
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
-pub use frame_cursor::FrameCursor;
 
 use errors::{LoadError, ParseChannelError, SetMotionError};
 
@@ -366,7 +371,7 @@ pub fn from_str(string: &str) -> Result<Bvh, LoadError> {
 ///
 /// See the [module documentation](index.html#using-this-library)
 /// for more information.
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Bvh {
     /// The list of joints. If the root joint exists, it is always at
     /// index `0`.
@@ -384,8 +389,14 @@ pub struct Bvh {
 impl Bvh {
     /// Create an empty `Bvh`.
     #[inline]
-    pub fn new() -> Self {
-        Default::default()
+    pub const fn new() -> Self {
+        Self {
+            joints: Vec::new(),
+            motion_values: Vec::new(),
+            num_frames: 0,
+            num_channels: 0,
+            frame_time: Duration::from_secs(0),
+    }
     }
 
     /// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
@@ -533,10 +544,11 @@ impl Bvh {
     #[inline]
     pub fn frames(&self) -> Frames<'_> {
         Frames {
-            motion_values: &self.motion_values[..],
-            num_channels: self.num_channels,
-            num_frames: self.num_frames,
-            curr_frame: 0,
+            chunks: if self.num_channels != 0 {
+                Some(self.motion_values[..].chunks_exact(self.num_channels))
+            } else {
+                None
+            },
         }
     }
 
@@ -544,10 +556,11 @@ impl Bvh {
     #[inline]
     pub fn frames_mut(&mut self) -> FramesMut<'_> {
         FramesMut {
-            motion_values: &mut self.motion_values[..],
-            num_channels: self.num_channels,
-            num_frames: self.num_frames,
-            curr_frame: 0,
+            chunks: if self.num_channels != 0 {
+                Some((&mut self.motion_values[..]).chunks_exact_mut(self.num_channels))
+            } else {
+                None
+            },
         }
     }
 
@@ -564,47 +577,43 @@ impl Bvh {
     /// Returns the motion value at `frame` and `channel` if they are in bounds,
     /// `None` otherwise.
     #[inline]
-    pub fn try_get_motion(&self, frame: usize, channel: &Channel) -> Option<f32> {
+    pub fn try_get_motion<C>(&self, frame: usize, channel: C) -> Option<f32>
+    where
+        C: Borrow<Channel>,
+    {
         self.frames()
             .nth(frame)
-            .and_then(|f| f.get(channel))
-            .map(|m| *m)
+            .and_then(|f| f.get(channel).copied())
     }
 
-    /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
+    /// Updates the `motion` value at `frame` and `channel` to `new_motion`, and
+    /// returns the old motion value.
     ///
     /// # Panics
     ///
     /// This method will panic if `frame` is greater than `self.num_frames()`.
     #[inline]
-    pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) {
-        self.try_set_motion(frame, channel, new_motion).unwrap();
+    pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) -> f32 {
+        self.try_set_motion(frame, channel, new_motion).unwrap()
     }
 
     /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
     ///
     /// # Notes
     ///
-    /// Returns `Ok(())` if the `motion` value was successfully set, and `Err(_)` if
+    /// Returns toe previous motion value if the operation was successful, and `Err(_)` if
     /// the operation was out of bounds.
     #[inline]
-    pub fn try_set_motion<'a>(
+    pub fn try_set_motion<C: Borrow<Channel>>(
         &mut self,
         frame: usize,
-        channel: &'a Channel,
+        channel: C,
         new_motion: f32,
-    ) -> Result<(), SetMotionError<'a>> {
-        let m = self
-            .frames_mut()
+    ) -> Result<f32, SetMotionError> {
+        self.frames_mut()
             .nth(frame)
             .ok_or(SetMotionError::BadFrame(frame))
-            .and_then(|f| {
-                f.get_mut(channel)
-                    .ok_or(SetMotionError::BadChannel(channel))
-            })?;
-
-        *m = new_motion;
-        Ok(())
+            .and_then(|mut f| f.try_set_motion(channel, new_motion))
     }
 
     /// Get the number of frames in the `Bvh`.
@@ -635,6 +644,13 @@ impl Bvh {
     #[inline]
     pub fn frame_cursor(&mut self) -> FrameCursor<'_> {
         From::from(self)
+    }
+}
+
+impl Default for Bvh {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -906,11 +922,11 @@ impl Axis {
     /// ```
     #[inline]
     pub fn vector<T: One + Zero>(&self) -> Vector3<T> {
-        let (_1, _0) = (one, zero);
+        let (o, z) = (one, zero);
         match *self {
-            Axis::X => [_1(), _0(), _0()].into(),
-            Axis::Y => [_0(), _1(), _0()].into(),
-            Axis::Z => [_0(), _0(), _1()].into(),
+            Axis::X => [o(), z(), z()].into(),
+            Axis::Y => [z(), o(), z()].into(),
+            Axis::Z => [z(), z(), o()].into(),
         }
     }
 }
@@ -924,165 +940,5 @@ impl fmt::Display for Axis {
             Axis::Z => "z",
         };
         f.write_str(s)
-    }
-}
-
-/// An iterator over the frames of a `Bvh`.
-#[derive(Debug)]
-pub struct Frames<'a> {
-    motion_values: &'a [f32],
-    num_channels: usize,
-    num_frames: usize,
-    curr_frame: usize,
-}
-
-impl Frames<'_> {
-    /// Returns the number of `Frame`s left to iterate over.
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.num_frames - self.curr_frame
-    }
-
-    /// Returns `true` if the number of `Frame`s left to iterate over is `0`.
-    #[inline]
-    pub const fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-impl<'a> Iterator for Frames<'a> {
-    type Item = &'a Frame;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let range = frames_iter_logic(self.num_channels, self.num_frames, self.curr_frame)?;
-        self.curr_frame += 1;
-        Some(Frame::from_slice(&self.motion_values[range]))
-    }
-}
-
-/// A mutable iterator over the frames of a `Bvh`.
-#[derive(Debug)]
-pub struct FramesMut<'a> {
-    motion_values: &'a mut [f32],
-    num_channels: usize,
-    num_frames: usize,
-    curr_frame: usize,
-}
-
-impl FramesMut<'_> {
-    /// Returns the number of `Frame`s left to iterate over.
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.num_frames - self.curr_frame
-    }
-
-    /// Returns `true` if the number of `Frame`s left to iterate over is `0`.
-    #[inline]
-    pub const fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-impl<'a> Iterator for FramesMut<'a> {
-    type Item = &'a mut Frame;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let range = frames_iter_logic(self.num_channels, self.num_frames, self.curr_frame)?;
-        self.curr_frame += 1;
-        unsafe {
-            // Cast the anonymous lifetime to the 'a lifetime to avoid E0495.
-            // @TODO: is this safe?
-            Some(mem::transmute::<&mut Frame, &'a mut Frame>(
-                Frame::from_mut_slice(&mut self.motion_values[range]),
-            ))
-        }
-    }
-}
-
-#[inline(always)]
-fn frames_iter_logic(
-    num_channels: usize,
-    num_frames: usize,
-    curr_frame: usize,
-) -> Option<Range<usize>> {
-    if num_frames == 0 || curr_frame >= num_frames {
-        return None;
-    }
-
-    let start = curr_frame * num_channels;
-    let end = start + num_channels;
-
-    Some(Range { start, end })
-}
-
-/// A wrapper for a slice of motion values, so that they can be indexed by `Channel`.
-#[derive(PartialEq)]
-pub struct Frame([f32]);
-
-impl fmt::Debug for Frame {
-    #[inline]
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, fmtr)
-    }
-}
-
-impl Frame {
-    #[inline]
-    fn from_slice<'a>(frame_motions: &'a [f32]) -> &'a Frame {
-        unsafe { &*(frame_motions as *const [f32] as *const Frame) }
-    }
-
-    #[inline]
-    fn from_mut_slice<'a>(frame_motions: &'a mut [f32]) -> &'a mut Frame {
-        unsafe { &mut *(frame_motions as *mut [f32] as *mut Frame) }
-    }
-
-    /// Returns the number of motion values in the `Frame`.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// Returns true if the `Frame` has a length of 0.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Returns a reference to the motion element corresponding to `Channel`, or `None`
-    /// if out of bounds.
-    #[inline]
-    pub fn get(&self, channel: &Channel) -> Option<&f32> {
-        self.0.get(channel.motion_index)
-    }
-
-    /// Returns a mutable reference to the motion element corresponding to `Channel`,
-    /// or `None` if out of bounds.
-    #[inline]
-    pub fn get_mut(&mut self, channel: &Channel) -> Option<&mut f32> {
-        self.0.get_mut(channel.motion_index)
-    }
-
-    /// Get the `Frame` as a slice of `f32` values.
-    pub fn as_slice(&self) -> &[f32] {
-        &self.0[..]
-    }
-
-    /// Get the `Frame` as a mutable slice of `f32` values.
-    pub fn as_mut_slice(&mut self) -> &mut [f32] {
-        &mut self.0[..]
-    }
-}
-
-impl Index<&Channel> for Frame {
-    type Output = f32;
-    #[inline]
-    fn index(&self, channel: &Channel) -> &Self::Output {
-        self.0.index(channel.motion_index)
-    }
-}
-
-impl IndexMut<&Channel> for Frame {
-    fn index_mut(&mut self, channel: &Channel) -> &mut Self::Output {
-        self.0.index_mut(channel.motion_index)
     }
 }

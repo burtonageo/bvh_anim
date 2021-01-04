@@ -377,14 +377,14 @@ impl From<io::Error> for LoadMotionError {
 /// An error which may occurr when setting a motion which is out
 /// of bounds.
 #[derive(Clone, Debug, PartialEq)]
-pub enum SetMotionError<'a> {
+pub enum SetMotionError {
     /// The frame was out of bounds.
     BadFrame(usize),
     /// The channel was out of bounds.
-    BadChannel(&'a Channel),
+    BadChannel(Channel),
 }
 
-impl fmt::Display for SetMotionError<'_> {
+impl fmt::Display for SetMotionError {
     #[inline]
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
@@ -398,7 +398,7 @@ impl fmt::Display for SetMotionError<'_> {
     }
 }
 
-impl StdError for SetMotionError<'_> {
+impl StdError for SetMotionError {
     #[inline]
     fn description(&self) -> &'static str {
         match *self {

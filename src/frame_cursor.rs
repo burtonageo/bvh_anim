@@ -1,6 +1,9 @@
 use crate::{
     Bvh,
     Frame,
+    FrameMut,
+    Frames,
+    FramesMut,
     errors::{FrameInsertError, FrameRemoveError},
 };
 use std::cmp::min;
@@ -89,7 +92,7 @@ impl<'bvh> FrameCursor<'bvh> {
     ///
     /// Returns `None` if there is no frame available.
     #[inline]
-    pub fn peek_next(&self) -> Option<&Frame> {
+    pub fn peek_next(&self) -> Option<Frame<'_>> {
         self.bvh.frames().nth(self.index)
     }
 
@@ -97,7 +100,7 @@ impl<'bvh> FrameCursor<'bvh> {
     ///
     /// Returns `None` if there is no frame available.
     #[inline]
-    pub fn peek_prev(&self) -> Option<&Frame> {
+    pub fn peek_prev(&self) -> Option<Frame<'_>> {
         if self.index() > 0 {
             self.bvh.frames().nth(self.index - 1)
         } else {
@@ -106,12 +109,12 @@ impl<'bvh> FrameCursor<'bvh> {
     }
 
     #[inline]
-    pub fn peek_next_mut(&mut self) -> Option<&mut Frame> {
+    pub fn peek_next_mut(&mut self) -> Option<FrameMut<'_>> {
         self.bvh.frames_mut().nth(self.index)
     }
 
     #[inline]
-    pub fn peek_prev_mut(&mut self) -> Option<&mut Frame> {
+    pub fn peek_prev_mut(&mut self) -> Option<FrameMut<'_>> {
         if self.index() > 0 {
             self.bvh.frames_mut().nth(self.index - 1)
         } else {
@@ -124,7 +127,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// If either of the frames is not available, then `None` will be returned
     /// for that frame.
     #[inline]
-    pub fn surrounding_frames(&self) -> (Option<&Frame>, Option<&Frame>) {
+    pub fn surrounding_frames(&self) -> (Option<Frame<'_>>, Option<Frame<'_>>) {
         (self.peek_prev(), self.peek_next())
     }
 
@@ -487,6 +490,36 @@ impl<'bvh> FrameCursor<'bvh> {
     pub fn shrink_to_fit(&mut self) {
         self.bvh.motion_values.shrink_to_fit();
     }
+
+    /// Create a new `Frames` iterator from the `FramesCursor`, starting at the current
+    /// index.
+    #[inline]
+    pub fn into_frames(self) -> Frames<'bvh> {
+        // @TODO: Replace with `Iterator::advance_by` when stable.
+        let mut frames = self.bvh.frames();
+        for _ in (0..self.index) {
+            if frames.next().is_none() {
+                break;
+            }
+        }
+
+        frames
+    }
+
+    /// Create a new `FramesMut` iterator from the `FramesCursor`, starting at the current
+    /// index.
+    #[inline]
+    pub fn into_frames_mut(self) -> FramesMut<'bvh> {
+        // @TODO: Replace with `Iterator::advance_by` when stable.
+        let mut frames = self.bvh.frames_mut();
+        for _ in (0..self.index) {
+            if frames.next().is_none() {
+                break;
+            }
+        }
+
+        frames
+    }
 }
 
 impl<'bvh> From<&'bvh mut Bvh> for FrameCursor<'bvh> {
@@ -496,6 +529,20 @@ impl<'bvh> From<&'bvh mut Bvh> for FrameCursor<'bvh> {
             bvh,
             index: 0,
         }
+    }
+}
+
+impl<'bvh> From<FrameCursor<'bvh>> for Frames<'bvh> {
+    #[inline]
+    fn from(cursor: FrameCursor<'bvh>) -> Self {
+        cursor.into_frames()
+    }
+}
+
+impl<'bvh> From<FrameCursor<'bvh>> for FramesMut<'bvh> {
+    #[inline]
+    fn from(cursor: FrameCursor<'bvh>) -> Self {
+        cursor.into_frames_mut()
     }
 }
 
