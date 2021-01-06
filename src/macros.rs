@@ -415,11 +415,6 @@ pub struct BvhLiteralBuilder {
     pub current_channel_index: usize,
     pub current_depth: usize,
     pub current_index: usize,
-    pub encountered_hierarchy: bool,
-    pub encountered_root: bool,
-    pub encountered_motion: bool,
-    pub encountered_num_frames: bool,
-    pub encountered_frame_time: bool,
 }
 
 #[doc(hidden)]
