@@ -208,6 +208,8 @@ mod parse;
 
 use crate::{
     joint::JointData,
+    errors::{LoadError, ParseChannelError, SetMotionError},
+    frames::{FrameCursor, FrameIndex, Frames, FramesMut},
 };
 use bstr::{
     io::{BufReadExt, ByteLines},
@@ -216,7 +218,6 @@ use bstr::{
 use mint::Vector3;
 use num_traits::{one, zero, One, Zero};
 use std::{
-    borrow::Borrow,
     convert::TryFrom,
     fmt,
     io::{self, Cursor, Write},
@@ -226,14 +227,18 @@ use std::{
     time::Duration,
 };
 
-pub use frame_cursor::FrameCursor;
-pub use frame_iter::{Frames, FramesMut, Frame, FrameMut};
+pub mod frames {
+    //! This module contains types and functions used for accessing and modifying
+    //! frame data.
+
+    pub use crate::frame_cursor::FrameCursor;
+    pub use crate::frame_iter::{Frame, FrameIndex, FrameMut, Frames, FramesMut};
+}
 
 pub use joint::{Joint, JointMut, Joints, JointsMut};
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
 
-use errors::{LoadError, ParseChannelError, SetMotionError};
 
 struct CachedEnumerate<I> {
     iter: Enumerate<I>,
@@ -561,26 +566,30 @@ impl Bvh {
         }
     }
 
-    /// Gets the motion value at `frame` and `Channel`.
+    /// Gets the motion value at `frame` and `channel`.
     ///
     /// # Panics
     ///
-    /// This method will panic if `frame` is greater than `self.num_frames()`.
+    /// This method will panic if `frame` is greater than `self.num_frames()` or
+    /// if `channel` is out of bounds.
     #[inline]
-    pub fn get_motion(&self, frame: usize, channel: &Channel) -> f32 {
+    pub fn get_motion<I>(&self, frame: usize, channel: I) -> f32
+    where
+        I: FrameIndex<SliceIndex = usize>,
+    {
         *self.frames().nth(frame).unwrap().index(channel)
     }
 
     /// Returns the motion value at `frame` and `channel` if they are in bounds,
     /// `None` otherwise.
     #[inline]
-    pub fn try_get_motion<C>(&self, frame: usize, channel: C) -> Option<f32>
+    pub fn try_get_motion<I>(&self, frame: usize, index: I) -> Option<f32>
     where
-        C: Borrow<Channel>,
+        I: FrameIndex<SliceIndex = usize>,
     {
         self.frames()
             .nth(frame)
-            .and_then(|f| f.get(channel).copied())
+            .and_then(|f| f.get(index).copied())
     }
 
     /// Updates the `motion` value at `frame` and `channel` to `new_motion`, and
@@ -588,10 +597,15 @@ impl Bvh {
     ///
     /// # Panics
     ///
-    /// This method will panic if `frame` is greater than `self.num_frames()`.
+    /// This method will panic if `frame` is greater than `self.num_frames()` or
+    /// if `channel` is out of bounds.
     #[inline]
-    pub fn set_motion(&mut self, frame: usize, channel: &Channel, new_motion: f32) -> f32 {
-        self.try_set_motion(frame, channel, new_motion).unwrap()
+    pub fn set_motion<I>(&mut self, frame: usize, channel: I, new_motion: f32) -> f32
+    where
+        I: FrameIndex<SliceIndex = usize>,
+    {
+        self.try_set_motion(frame, channel, new_motion)
+            .expect("Could not set motion because frame or channel was out of bounds")
     }
 
     /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
@@ -601,12 +615,15 @@ impl Bvh {
     /// Returns toe previous motion value if the operation was successful, and `Err(_)` if
     /// the operation was out of bounds.
     #[inline]
-    pub fn try_set_motion<C: Borrow<Channel>>(
+    pub fn try_set_motion<I>(
         &mut self,
         frame: usize,
-        channel: C,
+        channel: I,
         new_motion: f32,
-    ) -> Result<f32, SetMotionError> {
+    ) -> Result<f32, SetMotionError>
+    where
+        I: FrameIndex<SliceIndex = usize>,
+    {
         self.frames_mut()
             .nth(frame)
             .ok_or(SetMotionError::BadFrame(frame))

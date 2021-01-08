@@ -2,7 +2,7 @@
 
 //! Contains options for `bvh` file formatting.
 
-use crate::{Bvh, Frame, Frames, Joint, Joints};
+use crate::{Bvh, frames::{Frame, Frames}, Joint, Joints};
 use bstr::{BStr, BString, B};
 use mint::Vector3;
 use smallvec::SmallVec;

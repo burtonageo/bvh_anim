@@ -1,9 +1,11 @@
 use crate::{
     Bvh,
-    Frame,
-    FrameMut,
-    Frames,
-    FramesMut,
+    frames::{
+        Frame,
+        FrameMut,
+        Frames,
+        FramesMut,
+    },
     errors::{FrameInsertError, FrameRemoveError},
 };
 use std::cmp::min;
@@ -14,9 +16,9 @@ use std::cmp::min;
 ///
 /// You can create a `FrameCursor` using the [`Bvh::frame_cursor`] method.
 ///
-/// [`Bvh`]: ./struct.Bvh.html
+/// [`Bvh`]: ../struct.Bvh.html
 /// [`linked_list::Cursor`]: http://doc.rust-lang.org/stable/std/collections/linked_list/struct.Cursor.html
-/// [`Bvh::frame_cursor`]: ./struct.Bvh.html#method.frame_cursor
+/// [`Bvh::frame_cursor`]: ../struct.Bvh.html#method.frame_cursor
 #[derive(Debug)]
 pub struct FrameCursor<'bvh> {
     bvh: &'bvh mut Bvh,
@@ -33,7 +35,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// Returns the number of frames in the [`Bvh`] the cursor is is currently
     /// pointing to.
     ///
-    /// [`Bvh`]: ./struct.Bvh.html
+    /// [`Bvh`]: ../struct.Bvh.html
     #[inline]
     pub const fn num_frames(&self) -> usize {
         self.bvh.num_frames
@@ -42,7 +44,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// Returns the number of channels in the [`Bvh`] the cursor is is currently
     /// pointing to.
     ///
-    /// [`Bvh`]: ./struct.Bvh.html
+    /// [`Bvh`]: ../struct.Bvh.html
     #[inline]
     pub const fn num_channels(&self) -> usize {
         self.bvh.num_channels
@@ -483,7 +485,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// # } // fn main()
     /// ```
     ///
-    /// [`Bvh`]: ./struct.Bvh.html
+    /// [`Bvh`]: ../struct.Bvh.html
     #[inline]
     pub fn remove_all_frames(&mut self) -> &mut Self {
         self.bvh.motion_values.clear();
@@ -493,7 +495,7 @@ impl<'bvh> FrameCursor<'bvh> {
 
     /// Shrinks the capacity of the motion values in the [`Bvh`] as much as possible.
     ///
-    /// [`Bvh`]: ./struct.Bvh.html
+    /// [`Bvh`]: ../struct.Bvh.html
     #[inline]
     pub fn shrink_to_fit(&mut self) {
         self.bvh.motion_values.shrink_to_fit();

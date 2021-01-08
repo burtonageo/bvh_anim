@@ -1,6 +1,6 @@
 //! Errors which may occur when manipulating `Bvh` files.
 
-use crate::{Axis, Channel};
+use crate::Axis;
 use bstr::BString;
 use lexical::Error as LexicalError;
 use std::{error::Error as StdError, fmt, io};
@@ -381,7 +381,7 @@ pub enum SetMotionError {
     /// The frame was out of bounds.
     BadFrame(usize),
     /// The channel was out of bounds.
-    BadChannel(Channel),
+    BadChannel(usize),
 }
 
 impl fmt::Display for SetMotionError {
@@ -392,7 +392,7 @@ impl fmt::Display for SetMotionError {
             SetMotionError::BadChannel(channel) => write!(
                 fmtr,
                 "Channel {} of the bvh was out of bounds",
-                channel.motion_index
+                channel,
             ),
         }
     }

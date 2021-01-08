@@ -2,7 +2,7 @@ use crate::{Channel, errors::SetMotionError};
 use std::{
     borrow::{Borrow, BorrowMut},
     iter::{DoubleEndedIterator, FusedIterator, Iterator, ExactSizeIterator},
-    slice::{ChunksExact, ChunksExactMut},
+    slice::{ChunksExact, ChunksExactMut, SliceIndex},
     mem,
     ops::{Index, IndexMut},
 };
@@ -11,9 +11,12 @@ use std::{
 ///
 /// This type is created using the [`Bvh::frames`] method.
 ///
-/// [`Bvh::frames`]: ./struct.Bvh.html#method.frames
+/// [`Bvh::frames`]: ../struct.Bvh.html#method.frames
 #[derive(Debug)]
 pub struct Frames<'a> {
+    /// Note: `chunks` is wrapped in an option because having a `ChunksExact`
+    /// iterator over 0-length chunks panics, and empty `Bvh`s have empty
+    /// frames.
     pub(crate) chunks: Option<ChunksExact<'a, f32>>,
 }
 
@@ -47,23 +50,28 @@ impl<'a> ExactSizeIterator for Frames<'a> {
 
 impl<'a> FusedIterator for Frames<'a> {}
 
-/// A mutable iterator over the frames of a `Bvh`.
+/// A mutable iterator over the frames of a [`Bvh`].
 ///
 /// This type is created using the [`Bvh::frames_mut`] method.
 ///
-/// [`Bvh::frames`]: ./struct.Bvh.html#method.frames_mut
+/// [`Bvh`]: ../struct.Bvh.html
+/// [`Bvh::frames_mut`]: ../struct.Bvh.html#method.frames_mut
 #[derive(Debug)]
 pub struct FramesMut<'a> {
+    /// Note: `chunks` is wrapped in an option for the same reason
+    /// that `Frames<'_>`'s `chunks` is wrapped.
     pub(crate) chunks: Option<ChunksExactMut<'a, f32>>,
 }
 
 impl<'a> Iterator for FramesMut<'a> {
     type Item = FrameMut<'a>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.chunks.as_mut().and_then(|c| c.next().map(FrameMut))
     }
 
+    #[inline]
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.chunks.as_ref().map(|c| c.size_hint()).unwrap_or_default()
@@ -112,10 +120,10 @@ impl<'a> Frame<'a> {
         self.0
     }
 
-    /// Attempts to get the motion value at `channel`. Otherwise, returns `None`. 
+    /// Attempts to get the motion value at `index`. Otherwise, returns `None`. 
     #[inline]
-    pub fn get<B: Borrow<Channel>>(&self, channel: B) -> Option<&f32> {
-        self.0.get(channel.borrow().motion_index)
+    pub fn get<I: FrameIndex>(&self, index: I) -> Option<&Output<I>> {
+        self.0.get(index.to_slice_index())
     }
 }
 
@@ -133,11 +141,11 @@ impl<'a> Borrow<[f32]> for Frame<'a> {
     }
 }
 
-impl<'a, B: Borrow<Channel>> Index<B> for Frame<'a> {
-    type Output = f32;
+impl<'a, I: FrameIndex> Index<I> for Frame<'a> {
+    type Output = Output<I>;
     #[inline]
-    fn index(&self, channel: B) -> &Self::Output {
-        self.0.index(channel.borrow().motion_index)
+    fn index(&self, index: I) -> &Self::Output {
+        self.0.index(index.to_slice_index())
     }
 }
 
@@ -173,31 +181,31 @@ impl<'a> FrameMut<'a> {
         self.0
     }
 
-    /// Attempts to get the motion value at `channel`. Otherwise, returns `None`. 
+    /// Attempts to get the motion value at `index`. Otherwise, returns `None`. 
     #[inline]
-    pub fn get<C: Borrow<Channel>>(&self, channel: C) -> Option<&f32> {
-        self.0.get(channel.borrow().motion_index)
+    pub fn get<I: FrameIndex>(&self, index: I) -> Option<&Output<I>> {
+        self.0.get(index.to_slice_index())
     }
 
     /// Attempts to return a mutable reference to the motion value at `channel`.
     /// Otherwise, returns `None`.
     #[inline]
-    pub fn get_mut<C: Borrow<Channel>>(&mut self, channel: C) -> Option<&mut f32> {
-        self.0.get_mut(channel.borrow().motion_index)
+    pub fn get_mut<I: FrameIndex>(&'a mut self, index: I) -> Option<&mut Output<I>> {
+        self.0.get_mut(index.to_slice_index())
     }
 
     /// Updates the `motion` value at `channel` to `new_motion`.
     ///
     /// # Notes
     ///
-    /// Returns toe previous motion value if the operation was successful, and `Err(_)` if
+    /// Returns the previous motion value if the operation was successful, and `Err(_)` if
     /// the operation was out of bounds.
-    pub fn try_set_motion<C>(&mut self, channel: C, new_motion: f32) -> Result<f32, SetMotionError>
+    pub fn try_set_motion<I>(&mut self, index: I, new_motion: f32) -> Result<f32, SetMotionError>
     where
-        C: Borrow<Channel>,
+        I: FrameIndex<SliceIndex = usize>,
     {
-        let channel = channel.borrow();
-        let motion = self.get_mut(channel).ok_or(SetMotionError::BadChannel(*channel))?;
+        let index = index.to_slice_index();
+        let motion = self.0.get_mut(index).ok_or(SetMotionError::BadChannel(index))?;
         Ok(mem::replace(motion, new_motion))
     }
 }
@@ -230,17 +238,78 @@ impl<'a> AsMut<[f32]> for FrameMut<'a> {
     }
 }
 
-impl<'a, B: Borrow<Channel>> Index<B> for FrameMut<'a> {
-    type Output = f32;
+impl<'a, I: FrameIndex> Index<I> for FrameMut<'a> {
+    type Output = Output<I>;
     #[inline]
-    fn index(&self, channel: B) -> &Self::Output {
-        self.0.index(channel.borrow().motion_index)
+    fn index(&self, index: I) -> &Self::Output {
+        self.0.index(index.to_slice_index())
     }
 }
 
-impl<'a, B: Borrow<Channel>> IndexMut<B> for FrameMut<'a> {
+impl<'a, I: FrameIndex> IndexMut<I> for FrameMut<'a> {
     #[inline]
-    fn index_mut(&mut self, channel: B) -> &mut Self::Output {
-        self.0.index_mut(channel.borrow().motion_index)
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        self.0.index_mut(index.to_slice_index())
     }
 }
+
+impl<'a> From<&'a FrameMut<'a>> for Frame<'a> {
+    #[inline]
+    fn from(frame_mut: &'a FrameMut<'a>) -> Self {
+        Frame(&*frame_mut.0)
+    }
+}
+
+impl<'a> From<FrameMut<'a>> for Frame<'a> {
+    #[inline]
+    fn from(frame_mut: FrameMut<'a>) -> Self {
+        Frame(&*frame_mut.0)
+    }
+}
+
+mod private {
+    pub trait Sealed {}
+}
+
+/// A helper trait used for indexing into a frame.
+pub trait FrameIndex: Sized + private::Sealed {
+    /// The type of the index generated.
+    type SliceIndex: SliceIndex<[f32]>;
+    /// Convert `Self` to a `SliceIndex`.
+    fn to_slice_index(self) -> Self::SliceIndex;
+}
+
+/// Type alias for the result of a `FrameIndex` operation.
+pub type Output<I> = <<I as FrameIndex>::SliceIndex as SliceIndex<[f32]>>::Output;
+
+impl<T: SliceIndex<[f32]>> FrameIndex for T {
+    type SliceIndex = Self;
+
+    #[inline]
+    fn to_slice_index(self) -> Self::SliceIndex {
+        self
+    }
+}
+
+// @TODO: Combine these into one impl for `impl Borrow<Channel>` when specialization lands.
+impl FrameIndex for Channel {
+    type SliceIndex = usize;
+
+    #[inline]
+    fn to_slice_index(self) -> Self::SliceIndex {
+        self.motion_index
+    }
+}
+
+impl FrameIndex for &'_ Channel {
+    type SliceIndex = usize;
+
+    #[inline]
+    fn to_slice_index(self) -> Self::SliceIndex {
+        self.motion_index
+    }
+}
+
+impl private::Sealed for Channel {}
+impl private::Sealed for &'_ Channel {}
+impl<T: SliceIndex<[f32]>> private::Sealed for T {}
