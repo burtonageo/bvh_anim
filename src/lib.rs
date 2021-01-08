@@ -208,8 +208,8 @@ mod parse;
 
 use crate::{
     joint::JointData,
-    errors::{LoadError, ParseChannelError, SetMotionError},
-    frames::{FrameCursor, FrameIndex, Frames, FramesMut},
+    errors::{LoadError, ParseChannelError},
+    frames::{FrameCursor, Frames, FramesMut},
 };
 use bstr::{
     io::{BufReadExt, ByteLines},
@@ -222,7 +222,6 @@ use std::{
     fmt,
     io::{self, Cursor, Write},
     iter::Enumerate,
-    ops::Index,
     str::{self, FromStr},
     time::Duration,
 };
@@ -564,70 +563,6 @@ impl Bvh {
                 None
             },
         }
-    }
-
-    /// Gets the motion value at `frame` and `channel`.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `frame` is greater than `self.num_frames()` or
-    /// if `channel` is out of bounds.
-    #[inline]
-    pub fn get_motion<I>(&self, frame: usize, channel: I) -> f32
-    where
-        I: FrameIndex<SliceIndex = usize>,
-    {
-        *self.frames().nth(frame).unwrap().index(channel)
-    }
-
-    /// Returns the motion value at `frame` and `channel` if they are in bounds,
-    /// `None` otherwise.
-    #[inline]
-    pub fn try_get_motion<I>(&self, frame: usize, index: I) -> Option<f32>
-    where
-        I: FrameIndex<SliceIndex = usize>,
-    {
-        self.frames()
-            .nth(frame)
-            .and_then(|f| f.get(index).copied())
-    }
-
-    /// Updates the `motion` value at `frame` and `channel` to `new_motion`, and
-    /// returns the old motion value.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `frame` is greater than `self.num_frames()` or
-    /// if `channel` is out of bounds.
-    #[inline]
-    pub fn set_motion<I>(&mut self, frame: usize, channel: I, new_motion: f32) -> f32
-    where
-        I: FrameIndex<SliceIndex = usize>,
-    {
-        self.try_set_motion(frame, channel, new_motion)
-            .expect("Could not set motion because frame or channel was out of bounds")
-    }
-
-    /// Updates the `motion` value at `frame` and `channel` to `new_motion`.
-    ///
-    /// # Notes
-    ///
-    /// Returns toe previous motion value if the operation was successful, and `Err(_)` if
-    /// the operation was out of bounds.
-    #[inline]
-    pub fn try_set_motion<I>(
-        &mut self,
-        frame: usize,
-        channel: I,
-        new_motion: f32,
-    ) -> Result<f32, SetMotionError>
-    where
-        I: FrameIndex<SliceIndex = usize>,
-    {
-        self.frames_mut()
-            .nth(frame)
-            .ok_or(SetMotionError::BadFrame(frame))
-            .and_then(|mut f| f.try_set_motion(channel, new_motion))
     }
 
     /// Get the number of frames in the `Bvh`.
