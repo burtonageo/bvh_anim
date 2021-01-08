@@ -292,23 +292,23 @@ impl<T: SliceIndex<[f32]>> FrameIndex for T {
 }
 
 // @TODO: Combine these into one impl for `impl Borrow<Channel>` when specialization lands.
-impl FrameIndex for Channel {
-    type SliceIndex = usize;
+macro_rules! impl_channel_frame_index {
+    ($($chn:ty),* $(,)?) => {
+        $(
+            impl FrameIndex for $chn {
+                type SliceIndex = usize;
 
-    #[inline]
-    fn to_slice_index(self) -> Self::SliceIndex {
-        self.motion_index
+                #[inline]
+                #[inline]
+                fn to_slice_index(self) -> Self::SliceIndex {
+                    self.motion_index
+                }
+            }
+        )*
     }
 }
 
-impl FrameIndex for &'_ Channel {
-    type SliceIndex = usize;
-
-    #[inline]
-    fn to_slice_index(self) -> Self::SliceIndex {
-        self.motion_index
-    }
-}
+impl_channel_frame_index!(Channel, &'_ Channel);
 
 impl private::Sealed for Channel {}
 impl private::Sealed for &'_ Channel {}
