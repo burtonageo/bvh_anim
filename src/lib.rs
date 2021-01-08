@@ -547,7 +547,7 @@ impl Bvh {
     pub fn frames(&self) -> Frames<'_> {
         Frames {
             chunks: if self.num_channels != 0 {
-                Some(self.motion_values[..].chunks_exact(self.num_channels))
+                Some(self.motion_values.as_slice().chunks_exact(self.num_channels))
             } else {
                 None
             },
@@ -559,7 +559,7 @@ impl Bvh {
     pub fn frames_mut(&mut self) -> FramesMut<'_> {
         FramesMut {
             chunks: if self.num_channels != 0 {
-                Some((&mut self.motion_values[..]).chunks_exact_mut(self.num_channels))
+                Some(self.motion_values.as_mut_slice().chunks_exact_mut(self.num_channels))
             } else {
                 None
             },
