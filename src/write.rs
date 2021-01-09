@@ -1,9 +1,10 @@
-#![allow(unused)]
-
 //! Contains options for `bvh` file formatting.
 
-use crate::{Bvh, frames::{Frame, Frames}, Joint, Joints};
-use bstr::{BStr, BString, B};
+use crate::{
+    frames::Frames,
+    Bvh, Joint, Joints,
+};
+use bstr::{BStr, BString};
 use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
@@ -304,7 +305,6 @@ impl WriteOptions {
                             *wrote_offset = false;
                             *wrote_channels = false;
                         }
-                        _ => {}
                     }
                 }
             }
@@ -340,33 +340,29 @@ impl WriteOptions {
                     chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {
-                    let mut frames = bvh.frames();
-                    *iter_state = WriteOptionsIterState::WriteFrames {
-                        current_frame: frames.next(),
-                        frames,
-                    };
+                    let frames = bvh.frames();
+                    *iter_state = WriteOptionsIterState::WriteFrames { frames };
                 }
             }
-            WriteOptionsIterState::WriteFrames {
-                ref mut current_frame,
-                ref mut frames,
-            } => match current_frame {
-                None => return false,
-                Some(frame) => {
-                    let motion_values = frame
-                        .as_slice()
-                        .iter()
-                        .map(|motion| match self.motion_values_significant_figures {
-                            Some(sf) => format!("{:.*}", sf, motion),
-                            None => format!("{:.}", motion),
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    *chunk = motion_values.into_bytes();
-                    chunk.extend_from_slice(terminator);
-                    *current_frame = frames.next();
-                }
-            },
+            WriteOptionsIterState::WriteFrames { ref mut frames } => {
+                return frames
+                    .next()
+                    .map(|frame| {
+                        let motion_values = frame
+                            .as_slice()
+                            .iter()
+                            .map(|motion| match self.motion_values_significant_figures {
+                                Some(sf) => format!("{:.*}", sf, motion),
+                                None => format!("{:.}", motion),
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        *chunk = motion_values.into_bytes();
+                        chunk.extend_from_slice(terminator);
+                        true
+                    })
+                    .unwrap_or_default();
+            }
         }
 
         true
@@ -395,7 +391,6 @@ enum WriteOptionsIterState<'a> {
     },
     WriteFrames {
         frames: Frames<'a>,
-        current_frame: Option<Frame<'a>>,
     },
 }
 
