@@ -401,7 +401,7 @@ enum WriteOptionsIterState<'a> {
 
 impl WriteOptionsIterState<'_> {
     #[inline]
-    fn new() -> Self {
+    const fn new() -> Self {
         WriteOptionsIterState::WriteHierarchy { written: false }
     }
 }
@@ -482,7 +482,7 @@ impl LineTerminator {
 
     /// Return the characters of the `LineTerminator` as a `&str`.
     #[inline]
-    pub fn as_str(&self) -> &str {
+    pub const fn as_str(&self) -> &str {
         match *self {
             LineTerminator::Unix => "\n",
             LineTerminator::Windows => "\r\n",
@@ -491,7 +491,7 @@ impl LineTerminator {
 
     /// Returns the escaped characters of the `LineTerminator` as a `&str`.
     #[inline]
-    pub fn as_escaped_str(&self) -> &str {
+    pub const fn as_escaped_str(&self) -> &str {
         match *self {
             LineTerminator::Unix => r"\n",
             LineTerminator::Windows => r"\r\n",
