@@ -1,5 +1,4 @@
 use crate::{joint::JointData, Bvh, Channel, ChannelType};
-use std::time::Duration;
 
 #[doc(hidden)]
 #[macro_export]
@@ -329,8 +328,9 @@ macro_rules! bvh {
         Frame Time: $frame_time:literal
     ) => {
         {
+            use std::time::Duration;
             let mut bvh = $crate::Bvh::default();
-            bvh.set_frame_time(f64::from($frame_time));
+            bvh.set_frame_time(Duration::from_secs_f64(f64::from($frame_time)));
             bvh
         }
     };
@@ -346,6 +346,7 @@ macro_rules! bvh {
         Frame Time: $frame_time:literal
     ) => {
         {
+            use std::time::Duration;
             use $crate::parse_joints_internal;
 
             let mut builder = $crate::BvhLiteralBuilder::default();
@@ -356,7 +357,7 @@ macro_rules! bvh {
             builder.current_depth -= 1;
 
             builder.set_num_channels();
-            builder.set_frame_time(f64::from($frame_time));
+            builder.bvh.set_frame_time(Duration::from_secs_f64(f64::from($frame_time)));
 
             builder.bvh
         }
@@ -476,12 +477,6 @@ impl BvhLiteralBuilder {
         self.last_joint().map(|joint| {
             joint.set_offset(offset, is_end_site);
         });
-    }
-
-    #[inline]
-    pub fn set_frame_time(&mut self, frame_time_secs: f64) {
-        self.bvh
-            .set_frame_time(Duration::from_secs_f64(frame_time_secs));
     }
 
     #[inline]
