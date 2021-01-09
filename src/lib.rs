@@ -207,7 +207,6 @@ mod joint;
 mod parse;
 
 use crate::{
-    joint::JointData,
     errors::{LoadError, ParseChannelError},
     frames::{FrameCursor, Frames, FramesMut},
 };
@@ -222,6 +221,7 @@ use std::{
     fmt,
     io::{self, Cursor, Write},
     iter::Enumerate,
+    mem,
     str::{self, FromStr},
     time::Duration,
 };
@@ -598,6 +598,41 @@ impl Bvh {
                 None
             },
         }
+    }
+
+    /// Removes all frame data from the `Bvh`, returning the previous frames.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bvh_anim::bvh;
+    /// let mut bvh = bvh! {
+    ///     HIERARCHY
+    ///     // hierarchy omitted...
+    ///     # ROOT Hips
+    ///     # {
+    ///     #     OFFSET 0.0 0.0 0.0
+    ///     #     CHANNELS 3 Xposition Yposition Zposition
+    ///     #     End Site
+    ///     #     {
+    ///     #         OFFSET 0.0 0.0 0.0
+    ///     #     }
+    ///     # }
+    ///     MOTION
+    ///     Frames: 1
+    ///     Frame Time: 0.033333333
+    ///     0.0 0.0 0.0
+    /// };
+    ///
+    /// let frames = bvh.extract_frames();
+    /// assert_eq!(bvh.num_frames(), 0);
+    /// assert_eq!(bvh.frames().len(), 0);
+    /// assert_eq!(frames, &[0.0, 0.0, 0.0]);
+    /// ```
+    #[inline]
+    pub fn extract_frames(&mut self) -> Vec<f32> {
+        self.num_frames = 0;
+        mem::take(&mut self.motion_values)
     }
 
     /// Get the number of frames in the `Bvh`.
