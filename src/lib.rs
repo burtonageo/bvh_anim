@@ -542,6 +542,20 @@ impl Bvh {
     }
 
     /// Returns a `Frames` iterator over the frames of the bvh.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bvh_anim::Bvh;
+    /// # fn use_bvh(bvh: Bvh) {
+    /// let bvh = // ...
+    /// # bvh;
+    /// for frame in bvh.frames() {
+    ///     // use frame...
+    ///     # let _ = frame;
+    /// }
+    /// # } // fn use_bvh()
+    /// ```
     #[inline]
     pub fn frames(&self) -> Frames<'_> {
         Frames {
@@ -554,6 +568,20 @@ impl Bvh {
     }
 
     /// Returns a mutable iterator over the frames of the bvh.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bvh_anim::Bvh;
+    /// # fn use_bvh(bvh: Bvh) {
+    /// let mut bvh = // ...
+    /// # bvh;
+    /// for frame in bvh.frames_mut() {
+    ///     // use frame...
+    ///     # let _ = frame;
+    /// }
+    /// # } // fn use_bvh()
+    /// ```
     #[inline]
     pub fn frames_mut(&mut self) -> FramesMut<'_> {
         FramesMut {
@@ -578,12 +606,48 @@ impl Bvh {
     }
 
     /// Get the duration each frame should play for in the `Bvh`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() {
+    /// # use bvh_anim::bvh;
+    /// # use std::time::Duration;
+    /// let bvh = bvh! {
+    ///     # HIERARCHY
+    ///     # MOTION
+    ///     # Frames: 0
+    ///     // ...
+    ///     Frame Time: 1
+    ///     // ...
+    /// };
+    ///
+    /// assert_eq!(*bvh.frame_time(), Duration::from_secs(1));
+    /// # } // fn main()
+    /// ```
     #[inline]
     pub const fn frame_time(&self) -> &Duration {
         &self.frame_time
     }
 
     /// Set the duration each frame should play for in the `Bvh` to `new_frame_time`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() {
+    /// # use bvh_anim::bvh;
+    /// # use std::time::Duration;
+    /// let mut bvh = bvh! {
+    ///     // ...
+    /// };
+    ///
+    /// let new_frame_time = Duration::from_secs(21);
+    /// bvh.set_frame_time(new_frame_time);
+    ///
+    /// assert_eq!(*bvh.frame_time(), new_frame_time);
+    /// # } // fn main()
+    /// ```
     #[inline]
     pub fn set_frame_time(&mut self, new_frame_time: Duration) {
         self.frame_time = new_frame_time;
