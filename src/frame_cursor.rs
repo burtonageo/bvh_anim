@@ -591,7 +591,7 @@ fn vec_insert_slice<T: Clone + Default>(vec: &mut Vec<T>, index: usize, slice: &
 
 #[test]
 fn test_vec_insert_slice() {
-    let mut v = vec![];
+    let mut v;
     let sl = &[100, 200, 300];
 
     v = vec![1, 2, 3];
