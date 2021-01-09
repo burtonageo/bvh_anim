@@ -238,7 +238,6 @@ pub use joint::{Joint, JointMut, Joints, JointsMut};
 #[doc(hidden)]
 pub use macros::BvhLiteralBuilder;
 
-
 struct CachedEnumerate<I> {
     iter: Enumerate<I>,
     last_enumerator: Option<usize>,
@@ -560,7 +559,11 @@ impl Bvh {
     pub fn frames(&self) -> Frames<'_> {
         Frames {
             chunks: if self.num_channels != 0 {
-                Some(self.motion_values.as_slice().chunks_exact(self.num_channels))
+                Some(
+                    self.motion_values
+                        .as_slice()
+                        .chunks_exact(self.num_channels),
+                )
             } else {
                 None
             },
@@ -586,7 +589,11 @@ impl Bvh {
     pub fn frames_mut(&mut self) -> FramesMut<'_> {
         FramesMut {
             chunks: if self.num_channels != 0 {
-                Some(self.motion_values.as_mut_slice().chunks_exact_mut(self.num_channels))
+                Some(
+                    self.motion_values
+                        .as_mut_slice()
+                        .chunks_exact_mut(self.num_channels),
+                )
             } else {
                 None
             },

@@ -728,7 +728,7 @@ impl Joint<'_> {
     pub const fn has_end_site(&self) -> bool {
         self.end_site().is_some()
     }
- 
+
     /// Returns the ordered array of `Channel`s of this `JointData`.
     ///
     /// # Examples

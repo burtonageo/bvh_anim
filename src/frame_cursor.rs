@@ -1,12 +1,7 @@
 use crate::{
-    Bvh,
-    frames::{
-        Frame,
-        FrameMut,
-        Frames,
-        FramesMut,
-    },
     errors::{FrameInsertError, FrameRemoveError},
+    frames::{Frame, FrameMut, Frames, FramesMut},
+    Bvh,
 };
 use std::cmp::min;
 
@@ -316,7 +311,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// ```
     ///
     ///[`try_insert_frame`]: ./struct.FrameInserter.html#method.try_insert_frame
-    pub fn try_insert_frames<'f, I, F>(&mut self, frames: I)  -> Result<&mut Self, FrameInsertError>
+    pub fn try_insert_frames<'f, I, F>(&mut self, frames: I) -> Result<&mut Self, FrameInsertError>
     where
         I: IntoIterator<Item = &'f F>,
         F: 'f + AsRef<[f32]> + ?Sized,
@@ -535,10 +530,7 @@ impl<'bvh> FrameCursor<'bvh> {
 impl<'bvh> From<&'bvh mut Bvh> for FrameCursor<'bvh> {
     #[inline]
     fn from(bvh: &'bvh mut Bvh) -> Self {
-        Self {
-            bvh,
-            index: 0,
-        }
+        Self { bvh, index: 0 }
     }
 }
 

@@ -1,10 +1,10 @@
-use crate::{Channel, errors::SetMotionError};
+use crate::{errors::SetMotionError, Channel};
 use std::{
     borrow::{Borrow, BorrowMut},
-    iter::{DoubleEndedIterator, FusedIterator, Iterator, ExactSizeIterator},
-    slice::{ChunksExact, ChunksExactMut, SliceIndex},
+    iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator, Iterator},
     mem,
     ops::{Index, IndexMut},
+    slice::{ChunksExact, ChunksExactMut, SliceIndex},
 };
 
 /// An iterator over the frames of a `Bvh`.
@@ -30,7 +30,10 @@ impl<'a> Iterator for Frames<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chunks.as_ref().map(|c| c.size_hint()).unwrap_or_default()
+        self.chunks
+            .as_ref()
+            .map(|c| c.size_hint())
+            .unwrap_or_default()
     }
 }
 
@@ -74,14 +77,19 @@ impl<'a> Iterator for FramesMut<'a> {
     #[inline]
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chunks.as_ref().map(|c| c.size_hint()).unwrap_or_default()
+        self.chunks
+            .as_ref()
+            .map(|c| c.size_hint())
+            .unwrap_or_default()
     }
 }
 
 impl<'a> DoubleEndedIterator for FramesMut<'a> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.chunks.as_mut().and_then(|c| c.next_back().map(FrameMut))
+        self.chunks
+            .as_mut()
+            .and_then(|c| c.next_back().map(FrameMut))
     }
 }
 
@@ -120,7 +128,7 @@ impl<'a> Frame<'a> {
         self.0
     }
 
-    /// Attempts to get the motion value at `index`. Otherwise, returns `None`. 
+    /// Attempts to get the motion value at `index`. Otherwise, returns `None`.
     #[inline]
     pub fn get<I: FrameIndex>(&self, index: I) -> Option<&Output<I>> {
         self.0.get(index.to_slice_index())
@@ -181,7 +189,7 @@ impl<'a> FrameMut<'a> {
         self.0
     }
 
-    /// Attempts to get the motion value at `index`. Otherwise, returns `None`. 
+    /// Attempts to get the motion value at `index`. Otherwise, returns `None`.
     #[inline]
     pub fn get<I: FrameIndex>(&self, index: I) -> Option<&Output<I>> {
         self.0.get(index.to_slice_index())
@@ -205,7 +213,10 @@ impl<'a> FrameMut<'a> {
         I: FrameIndex<SliceIndex = usize>,
     {
         let index = index.to_slice_index();
-        let motion = self.0.get_mut(index).ok_or(SetMotionError::BadChannel(index))?;
+        let motion = self
+            .0
+            .get_mut(index)
+            .ok_or(SetMotionError::BadChannel(index))?;
         Ok(mem::replace(motion, new_motion))
     }
 }

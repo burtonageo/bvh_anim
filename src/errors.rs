@@ -389,11 +389,9 @@ impl fmt::Display for SetMotionError {
     fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             SetMotionError::BadFrame(frame) => write!(fmtr, "Frame {} was out of bounds", frame),
-            SetMotionError::BadChannel(channel) => write!(
-                fmtr,
-                "Channel {} of the bvh was out of bounds",
-                channel,
-            ),
+            SetMotionError::BadChannel(channel) => {
+                write!(fmtr, "Channel {} of the bvh was out of bounds", channel,)
+            }
         }
     }
 }
