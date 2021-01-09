@@ -8,7 +8,6 @@ use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
     ffi::{CStr, CString},
     fmt,
-    iter::once,
     mem,
     ops::{Deref, DerefMut},
     str,
@@ -259,7 +258,7 @@ macro_rules! impl_from {
         impl From<$t> for JointName {
             #[inline]
             fn from(b: $t) -> Self {
-                JointName(b.bytes().chain(once(b'\0')).collect())
+                JointName(b.bytes().collect())
             }
         }
         impl_from!($($rest)*);
@@ -269,21 +268,20 @@ macro_rules! impl_from {
 impl From<CString> for JointName {
     #[inline]
     fn from(s: CString) -> Self {
-        From::from(s.into_bytes_with_nul())
+        From::from(s.into_bytes())
     }
 }
 
 impl From<&'_ CStr> for JointName {
     #[inline]
     fn from(s: &'_ CStr) -> Self {
-        From::from(s.to_bytes_with_nul())
+        From::from(s.to_bytes())
     }
 }
 
 impl From<Vec<u8>> for JointName {
     #[inline]
-    fn from(mut s: Vec<u8>) -> Self {
-        s.push(b'\0');
+    fn from(s: Vec<u8>) -> Self {
         JointName(JointNameInner::from(s))
     }
 }
@@ -294,7 +292,6 @@ impl From<&'_ [u8]> for JointName {
         JointName(
             s.into_iter()
                 .copied()
-                .chain(once(b'\0'))
                 .collect::<JointNameInner>(),
         )
     }
@@ -311,15 +308,13 @@ macro_rules! impl_as_ref {
             impl AsRef<$t> for JointName {
                 #[inline]
                 fn as_ref(&self) -> &$t {
-                    let end = self.0.len() - 1;
-                    $method(&self.0[..end])
+                    $method(&self.0[..])
                 }
             }
             impl AsMut<$t> for JointName {
                 #[inline]
                 fn as_mut(&mut self) -> &mut $t {
-                    let end = self.0.len() - 1;
-                    $mut_method(&mut self.0[..end])
+                    $mut_method(&mut self.0[..])
                 }
             }
         )*
@@ -333,14 +328,7 @@ impl_as_ref! {
 
 impl From<JointNameInner> for JointName {
     #[inline]
-    fn from(mut s: JointNameInner) -> Self {
-        match s.chars().last() {
-            Some(c) if c != '\0' => {
-                s.push(0);
-            }
-            _ => (),
-        }
-
+    fn from(s: JointNameInner) -> Self {
         JointName(s)
     }
 }
