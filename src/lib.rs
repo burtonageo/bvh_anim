@@ -536,6 +536,7 @@ impl Bvh {
     }
 
     /// Returns a mutable iterator over all the joints in the `Bvh`.
+    #[inline]
     pub fn joints_mut(&mut self) -> JointsMut<'_> {
         JointsMut::iter_root(&mut self.joints[..])
     }
