@@ -33,7 +33,7 @@ impl<'a> Iterator for Frames<'a> {
         self.chunks
             .as_ref()
             .map(|c| c.size_hint())
-            .unwrap_or_default()
+            .unwrap_or((0, Some(0)))
     }
 }
 
@@ -75,12 +75,11 @@ impl<'a> Iterator for FramesMut<'a> {
     }
 
     #[inline]
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.chunks
             .as_ref()
             .map(|c| c.size_hint())
-            .unwrap_or_default()
+            .unwrap_or((0, Some(0)))
     }
 }
 
