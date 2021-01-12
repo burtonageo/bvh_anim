@@ -7,8 +7,7 @@ use smallvec::SmallVec;
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
     ffi::{CStr, CString},
-    fmt,
-    mem,
+    fmt, mem,
     ops::{Deref, DerefMut},
     str,
 };
@@ -289,11 +288,7 @@ impl From<Vec<u8>> for JointName {
 impl From<&'_ [u8]> for JointName {
     #[inline]
     fn from(s: &'_ [u8]) -> Self {
-        JointName(
-            s.into_iter()
-                .copied()
-                .collect::<JointNameInner>(),
-        )
+        JointName(s.into_iter().copied().collect::<JointNameInner>())
     }
 }
 

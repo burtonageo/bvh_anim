@@ -635,9 +635,7 @@ impl Bvh {
 
     /// Get the number of frames in the `Bvh`.
     #[inline]
-    #[deprecated(
-        note = "Please use `frames().len()` instead,"
-    )]
+    #[deprecated(note = "Please use `frames().len()` instead,")]
     pub fn num_frames(&self) -> usize {
         self.frames().len()
     }
