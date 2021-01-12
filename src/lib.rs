@@ -379,8 +379,6 @@ pub struct Bvh {
     joints: Vec<JointData>,
     /// The motion values of the `Frame`.
     motion_values: Vec<f32>,
-    /// The number of frames in the bvh.
-    num_frames: usize,
     /// The number of `Channel`s in the bvh.
     num_channels: usize,
     /// The total time it takes to play one frame.
@@ -394,7 +392,6 @@ impl Bvh {
         Self {
             joints: Vec::new(),
             motion_values: Vec::new(),
-            num_frames: 0,
             num_channels: 0,
             frame_time: Duration::from_secs(0),
     }
@@ -633,14 +630,16 @@ impl Bvh {
     /// ```
     #[inline]
     pub fn extract_frames(&mut self) -> Vec<f32> {
-        self.num_frames = 0;
         mem::take(&mut self.motion_values)
     }
 
     /// Get the number of frames in the `Bvh`.
     #[inline]
-    pub const fn num_frames(&self) -> usize {
-        self.num_frames
+    #[deprecated(
+        note = "Please use `frames().len()` instead,"
+    )]
+    pub fn num_frames(&self) -> usize {
+        self.frames().len()
     }
 
     /// Get the number of channels in the `Bvh`.

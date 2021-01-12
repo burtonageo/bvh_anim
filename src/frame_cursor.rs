@@ -32,8 +32,8 @@ impl<'bvh> FrameCursor<'bvh> {
     ///
     /// [`Bvh`]: ../struct.Bvh.html
     #[inline]
-    pub const fn num_frames(&self) -> usize {
-        self.bvh.num_frames
+    pub fn len(&self) -> usize {
+        self.bvh.frames().len()
     }
 
     /// Returns the number of channels in the [`Bvh`] the cursor is is currently
@@ -51,7 +51,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// do nothing.
     #[inline]
     pub fn move_next(&mut self) -> &mut Self {
-        self.index = min(self.index + 1, self.bvh.num_frames);
+        self.index = min(self.index + 1, self.bvh.frames().len());
         self
     }
 
@@ -81,7 +81,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// do nothing.
     #[inline]
     pub fn move_last(&mut self) -> &mut Self {
-        self.index = self.bvh.num_frames;
+        self.index = self.len();
         self
     }
 
@@ -205,7 +205,7 @@ impl<'bvh> FrameCursor<'bvh> {
     ///
     /// assert_eq!(frame_cursor.index(), 4);
     /// # drop(frame_cursor);
-    /// assert_eq!(simple_skeleton.num_frames(), 4);
+    /// assert_eq!(simple_skeleton.frames().len(), 4);
     ///
     /// # for (i, frame) in simple_skeleton.frames().enumerate() {
     /// #     for motion in &frame.as_slice()[..] {
@@ -229,7 +229,6 @@ impl<'bvh> FrameCursor<'bvh> {
         let idx = self.index * self.num_channels();
         vec_insert_slice(&mut self.bvh.motion_values, idx, frame);
 
-        self.bvh.num_frames += 1;
         Ok(self.move_next())
     }
 
@@ -300,7 +299,7 @@ impl<'bvh> FrameCursor<'bvh> {
     ///     .try_insert_frames(&[[3.0; 18], [4.0; 18]])
     ///     .expect("Could not insert frames");
     ///
-    /// assert_eq!(simple_skeleton.num_frames(), 5);
+    /// assert_eq!(simple_skeleton.frames().len(), 5);
     ///
     /// # for (i, frame) in simple_skeleton.frames().enumerate() {
     /// #     for motion in &frame.as_slice()[..] {
@@ -394,7 +393,7 @@ impl<'bvh> FrameCursor<'bvh> {
     ///     .remove_frame()
     ///     .expect("Could not remove frame");
     ///
-    /// assert_eq!(simple_skeleton.num_frames(), 2);
+    /// assert_eq!(simple_skeleton.frames().len(), 2);
     ///
     /// # for (i, frame) in simple_skeleton.frames().enumerate() {
     /// #     for motion in &frame.as_slice()[..] {
@@ -404,7 +403,7 @@ impl<'bvh> FrameCursor<'bvh> {
     /// # } // fn main()
     /// ```
     pub fn remove_frame(&mut self) -> Result<&mut Self, FrameRemoveError> {
-        if self.num_frames() == 0 {
+        if self.len() == 0 {
             return Err(FrameRemoveError::new(self.index));
         }
 
@@ -415,8 +414,6 @@ impl<'bvh> FrameCursor<'bvh> {
         self.bvh
             .motion_values
             .retain(|_| (!frame_bound.contains(&i), i += 1).0);
-
-        self.bvh.num_frames -= 1;
 
         Ok(self)
     }
@@ -474,9 +471,9 @@ impl<'bvh> FrameCursor<'bvh> {
     /// };
     ///
     /// let mut frame_cursor = simple_skeleton.frame_cursor();
-    /// assert_eq!(frame_cursor.num_frames(), 3);
+    /// assert_eq!(frame_cursor.len(), 3);
     /// frame_cursor.remove_all_frames();
-    /// assert_eq!(frame_cursor.num_frames(), 0);
+    /// assert_eq!(frame_cursor.len(), 0);
     /// # } // fn main()
     /// ```
     ///
@@ -484,7 +481,6 @@ impl<'bvh> FrameCursor<'bvh> {
     #[inline]
     pub fn remove_all_frames(&mut self) -> &mut Self {
         self.bvh.motion_values.clear();
-        self.bvh.num_frames = 0;
         self
     }
 

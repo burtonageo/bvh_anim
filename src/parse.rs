@@ -494,7 +494,7 @@ impl Bvh {
                 }
             })?;
 
-        self.num_frames = lines
+        let num_frames = lines
             .next_non_empty_line()
             .ok_or(LoadMotionError::MissingNumFrames {
                 parse_error: None,
@@ -595,7 +595,7 @@ impl Bvh {
                 }
             })?;
 
-        let expected_total_motion_values = self.num_channels * self.num_frames;
+        let expected_total_motion_values = self.num_channels * num_frames;
 
         self.motion_values.reserve(expected_total_motion_values);
 
@@ -613,11 +613,11 @@ impl Bvh {
             }
         }
 
-        if self.motion_values.len() != self.num_channels * self.num_frames {
+        if self.motion_values.len() != self.num_channels * num_frames {
             return Err(LoadMotionError::MotionCountMismatch {
                 actual_total_motion_values: self.motion_values.len(),
                 expected_total_motion_values,
-                expected_num_frames: self.num_frames,
+                expected_num_frames: num_frames,
                 expected_num_clips: self.num_channels,
             });
         }

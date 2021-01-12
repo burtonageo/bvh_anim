@@ -397,7 +397,7 @@ macro_rules! bvh {
                 .try_insert_frames([ $( f32::from($motion) ),+ ].chunks(num_channels))
                 .expect("Could not create bvh type from macro literal");
 
-            assert_eq!(new_bvh.num_frames(), $num_frames as usize);
+            assert_eq!(new_bvh.frames().len(), $num_frames as usize);
 
             new_bvh
         }
