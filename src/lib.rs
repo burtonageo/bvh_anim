@@ -209,6 +209,7 @@ mod parse;
 use crate::{
     errors::{LoadError, ParseChannelError},
     frames::{FrameCursor, Frames, FramesMut},
+    joint::JointData,
 };
 use bstr::{
     io::{BufReadExt, ByteLines},
