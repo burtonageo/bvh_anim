@@ -319,7 +319,7 @@ impl WriteOptions {
             }
             WriteOptionsIterState::WriteNumFrames { ref mut written } => {
                 if !*written {
-                    *chunk = format!("Frames: {}", bvh.num_frames()).into_bytes();
+                    *chunk = format!("Frames: {}", bvh.frames().len()).into_bytes();
                     chunk.extend_from_slice(terminator);
                     *written = true;
                 } else {
