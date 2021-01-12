@@ -223,6 +223,7 @@ use std::{
     io::{self, Cursor, Write},
     iter::Enumerate,
     mem,
+    num::NonZeroUsize,
     str::{self, FromStr},
     time::Duration,
 };
@@ -557,15 +558,11 @@ impl Bvh {
     #[inline]
     pub fn frames(&self) -> Frames<'_> {
         Frames {
-            chunks: if self.num_channels != 0 {
-                Some(
+            chunks: NonZeroUsize::new(self.num_channels).map(|_| {
                     self.motion_values
                         .as_slice()
-                        .chunks_exact(self.num_channels),
-                )
-            } else {
-                None
-            },
+                    .chunks_exact(self.num_channels)
+            }),
         }
     }
 
@@ -587,15 +584,11 @@ impl Bvh {
     #[inline]
     pub fn frames_mut(&mut self) -> FramesMut<'_> {
         FramesMut {
-            chunks: if self.num_channels != 0 {
-                Some(
+            chunks: NonZeroUsize::new(self.num_channels).map(move |_| {
                     self.motion_values
                         .as_mut_slice()
-                        .chunks_exact_mut(self.num_channels),
-                )
-            } else {
-                None
-            },
+                    .chunks_exact_mut(self.num_channels)
+            }),
         }
     }
 
