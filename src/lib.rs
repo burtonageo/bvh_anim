@@ -429,11 +429,10 @@ impl Bvh {
     }
 
     /// Loads the `Bvh` from the `reader`.
+    #[inline]
     pub fn from_reader<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
-        Self::from_reader_(reader.by_ref())
-    }
-
-    fn from_reader_(reader: &mut dyn BufReadExt) -> Result<Self, LoadError> {
+        #[inline(never)]
+        fn from_reader_(reader: &mut dyn BufReadExt) -> Result<Bvh, LoadError> {
         let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
         let mut bvh = Bvh::default();
@@ -442,6 +441,9 @@ impl Bvh {
         bvh.read_motion(&mut lines)?;
 
         Ok(bvh)
+    }
+
+        from_reader_(reader.by_ref())
     }
 
     /// Writes the `Bvh` using the `bvh` file format to the `writer`, with
