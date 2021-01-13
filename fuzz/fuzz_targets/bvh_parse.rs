@@ -3,5 +3,5 @@
 extern crate bvh_anim;
 
 fuzz_target!(|data: &[u8]| {
-    let _ = bvh_anim::parse(data);
+    let _ = bvh_anim::from_bytes(data);
 });

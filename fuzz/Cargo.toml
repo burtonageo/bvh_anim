@@ -20,8 +20,3 @@ members = ["."]
 [[bin]]
 name = "bvh_parse"
 path = "fuzz_targets/bvh_parse.rs"
-
-[[bin]]
-name = "ffi_parse"
-path = "fuzz_targets/ffi_parse.rs"
-
