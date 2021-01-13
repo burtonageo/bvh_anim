@@ -1,4 +1,7 @@
-use crate::{joint::{JointData, Offset}, Bvh, Channel, ChannelType};
+use crate::{
+    joint::{JointData, Offset},
+    Bvh, Channel, ChannelType,
+};
 
 #[doc(hidden)]
 #[macro_export]

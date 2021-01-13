@@ -564,7 +564,7 @@ impl Bvh {
             chunks: NonZeroUsize::new(self.num_channels).map(|_| {
                     self.motion_values
                         .as_slice()
-                    .chunks_exact(self.num_channels)
+                        .chunks_exact(self.num_channels)
             }),
         }
     }
@@ -590,7 +590,7 @@ impl Bvh {
             chunks: NonZeroUsize::new(self.num_channels).map(move |_| {
                     self.motion_values
                         .as_mut_slice()
-                    .chunks_exact_mut(self.num_channels)
+                        .chunks_exact_mut(self.num_channels)
             }),
         }
     }
