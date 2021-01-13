@@ -2,7 +2,6 @@
 
 use crate::{frames::Frames, Bvh, Joint, Joints};
 use bstr::{BStr, BString};
-use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
     fmt,
@@ -223,7 +222,7 @@ impl WriteOptions {
                             // allocation
                             chunk.extend(self.indent.prefix_chars(depth));
 
-                            let Vector3 { x, y, z } = joint_data.offset();
+                            let [x, y, z] = joint_data.offset();
                             let offset_str = match self.offset_significant_figures {
                                 Some(sf) => {
                                     format!("OFFSET {:.*} {:.*} {:.*}", sf, x, sf, y, sf, z,)
@@ -253,8 +252,7 @@ impl WriteOptions {
                             *wrote_channels = true;
                         }
                         (&mut true, &mut true, &mut true) => {
-                            if let Some(end_site) = joint_data.end_site() {
-                                let Vector3 { x, y, z } = end_site;
+                            if let Some([x, y, z]) = joint_data.end_site() {
                                 chunk.extend(self.indent.prefix_chars(depth));
                                 chunk.extend_from_slice(b"End Site");
                                 chunk.extend_from_slice(terminator);

@@ -1,4 +1,4 @@
-use crate::{joint::JointData, Bvh, Channel, ChannelType};
+use crate::{joint::{JointData, Offset}, Bvh, Channel, ChannelType};
 
 #[doc(hidden)]
 #[macro_export]
@@ -473,7 +473,7 @@ impl BvhLiteralBuilder {
         self.current_channel_index += 1;
     }
 
-    pub fn push_joint_offset(&mut self, offset: mint::Vector3<f32>, is_end_site: bool) {
+    pub fn push_joint_offset(&mut self, offset: Offset, is_end_site: bool) {
         self.last_joint().map(|joint| {
             joint.set_offset(offset, is_end_site);
         });
@@ -521,18 +521,17 @@ mod tests {
         };
 
         {
-            use super::{ChannelType, JointData};
-            use mint::Vector3;
+            use super::{ChannelType, JointData, Offset};
 
-            fn check_joint<V0: Into<Vector3<f32>>, V1: Into<Vector3<f32>>, O: Into<Option<V1>>>(
+            fn check_joint<O: Into<Option<Offset>>>(
                 joint: &JointData,
                 expected_name: &str,
-                expected_offset: V0,
+                expected_offset: Offset,
                 channels: &[ChannelType],
                 end_site: O,
             ) {
                 assert_eq!(joint.name(), expected_name);
-                assert_eq!(*joint.offset(), expected_offset.into());
+                assert_eq!(*joint.offset(), expected_offset);
                 for (chan, expected_chan) in joint
                     .channels()
                     .iter()
@@ -547,7 +546,7 @@ mod tests {
 
             let mut joints = bvh.joints();
 
-            check_joint::<[_; 3], [f32; 3], _>(
+            check_joint(
                 joints.next().unwrap().data(),
                 "Base",
                 [0.0, 0.0, 0.0],

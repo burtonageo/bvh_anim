@@ -1,8 +1,7 @@
-#![allow(dead_code)]
+#![allow(dead_code, missing_docs)]
 
 use crate::Channel;
 use bstr::{BStr, BString, ByteSlice};
-use mint::Vector3;
 use smallvec::SmallVec;
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
@@ -12,6 +11,10 @@ use std::{
     str,
 };
 
+/// A 3-element point representing the location of a joint offset or
+/// end site.
+pub type Offset = [f32; 3];
+
 /// Internal representation of a joint.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum JointData {
@@ -20,7 +23,7 @@ pub(crate) enum JointData {
         /// Name of the root `Joint`.   
         name: JointName,
         /// Positional offset of this `Joint` relative to the parent.
-        offset: Vector3<f32>,
+        offset: Offset,
         /// The channels applicable to this `Joint`.
         channels: SmallVec<[Channel; 6]>,
     },
@@ -29,11 +32,11 @@ pub(crate) enum JointData {
         /// Name of the `Joint`.
         name: JointName,
         /// Positional offset of this `Joint` relative to the parent.
-        offset: Vector3<f32>,
+        offset: Offset,
         /// The channels applicable to this `Joint`.
         channels: SmallVec<[Channel; 3]>,
         /// End site offset.
-        end_site_offset: Option<Vector3<f32>>,
+        end_site_offset: Option<Offset>,
         /// Private data.
         private: JointPrivateData,
     },
@@ -66,14 +69,14 @@ impl JointData {
     }
 
     #[inline]
-    pub(crate) const fn offset(&self) -> &Vector3<f32> {
+    pub(crate) const fn offset(&self) -> &Offset {
         match *self {
             JointData::Child { ref offset, .. } | JointData::Root { ref offset, .. } => offset,
         }
     }
 
     #[inline]
-    pub(crate) const fn end_site(&self) -> Option<&Vector3<f32>> {
+    pub(crate) const fn end_site(&self) -> Option<&Offset> {
         match *self {
             JointData::Child {
                 ref end_site_offset,
@@ -164,7 +167,7 @@ impl JointData {
         }
     }
 
-    pub(crate) fn set_offset(&mut self, new_offset: impl Into<Vector3<f32>>, is_site: bool) {
+    pub(crate) fn set_offset(&mut self, new_offset: impl Into<Offset>, is_site: bool) {
         let new_offset = new_offset.into();
         match *self {
             JointData::Root { ref mut offset, .. } => *offset = new_offset,
@@ -659,10 +662,10 @@ impl Joint<'_> {
     /// };
     ///
     /// let root = bvh.root_joint().unwrap();
-    /// assert_eq!(root.offset(), &[1.2, 3.4, 5.6].into());
+    /// assert_eq!(root.offset(), &[1.2, 3.4, 5.6]);
     /// ```
     #[inline]
-    pub const fn offset(&self) -> &Vector3<f32> {
+    pub const fn offset(&self) -> &Offset {
         self.data().offset()
     }
 
@@ -702,7 +705,7 @@ impl Joint<'_> {
     /// assert_eq!(tip.end_site(), Some([5.4, 3.2, 1.0].into()).as_ref());
     /// ```
     #[inline]
-    pub const fn end_site(&self) -> Option<&Vector3<f32>> {
+    pub const fn end_site(&self) -> Option<&Offset> {
         self.data().end_site()
     }
 

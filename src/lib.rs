@@ -209,14 +209,12 @@ mod parse;
 use crate::{
     errors::{LoadError, ParseChannelError},
     frames::{FrameCursor, Frames, FramesMut},
-    joint::JointData,
+    joint::{JointData, Offset},
 };
 use bstr::{
     io::{BufReadExt, ByteLines},
     BStr, BString, ByteSlice,
 };
-use mint::Vector3;
-use num_traits::{one, zero, One, Zero};
 use std::{
     convert::TryFrom,
     fmt,
@@ -879,8 +877,8 @@ impl ChannelType {
     ///
     /// [`Axis::vector`]: enum.Axis.html#method.vector
     #[inline]
-    pub fn axis_vector<T: One + Zero>(&self) -> Vector3<T> {
-        self.axis().vector::<T>()
+    pub fn axis_vector(&self) -> Offset {
+        self.axis().vector()
     }
 
     /// Returns the string representation of the `ChannelType`.
@@ -955,23 +953,22 @@ pub enum Axis {
 }
 
 impl Axis {
-    /// Returns the `Vector3` which represents the axis.
+    /// Returns the `Offset` which represents the axis.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bvh_anim::Axis;
-    /// assert_eq!(Axis::X.vector(), [1.0, 0.0, 0.0].into());
-    /// assert_eq!(Axis::Y.vector(), [0.0, 1.0, 0.0].into());
-    /// assert_eq!(Axis::Z.vector(), [0.0, 0.0, 1.0].into());
+    /// assert_eq!(Axis::X.vector(), [1.0, 0.0, 0.0]);
+    /// assert_eq!(Axis::Y.vector(), [0.0, 1.0, 0.0]);
+    /// assert_eq!(Axis::Z.vector(), [0.0, 0.0, 1.0]);
     /// ```
     #[inline]
-    pub fn vector<T: One + Zero>(&self) -> Vector3<T> {
-        let (o, z) = (one, zero);
+    pub fn vector(&self) -> Offset {
         match *self {
-            Axis::X => [o(), z(), z()].into(),
-            Axis::Y => [z(), o(), z()].into(),
-            Axis::Z => [z(), z(), o()].into(),
+            Axis::X => [1.0, 0.0, 0.0],
+            Axis::Y => [0.0, 1.0, 0.0],
+            Axis::Z => [0.0, 0.0, 1.0],
         }
     }
 }

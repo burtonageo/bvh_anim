@@ -7,7 +7,6 @@ use crate::{
 };
 use bstr::ByteSlice;
 use lexical::parse;
-use mint::Vector3;
 use std::time::Duration;
 
 /*
@@ -385,12 +384,12 @@ impl Bvh {
                         return Err(LoadJointsError::UnexpectedOffsetSection { line: line_num });
                     }
 
-                    let mut offset = Vector3::from([0.0, 0.0, 0.0]);
+                    let mut offset = [0.0, 0.0, 0.0];
 
                     macro_rules! parse_axis {
-                        ($axis_field:ident, $axis_enum:ident) => {
+                        ($axis_field:literal, $axis_enum:ident) => {
                             if let Some(tok) = tokens.next() {
-                                offset.$axis_field =
+                                offset[$axis_field] =
                                     parse(tok).map_err(|e| LoadJointsError::ParseOffsetError {
                                         parse_float_error: e,
                                         axis: Axis::$axis_enum,
@@ -405,9 +404,9 @@ impl Bvh {
                         };
                     }
 
-                    parse_axis!(x, X);
-                    parse_axis!(y, Y);
-                    parse_axis!(z, Z);
+                    parse_axis!(0, X);
+                    parse_axis!(1, Y);
+                    parse_axis!(2, Z);
 
                     curr_joint.set_offset(offset, in_end_site);
                 }

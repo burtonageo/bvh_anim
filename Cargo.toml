@@ -15,8 +15,6 @@ exclude = ["./fuzz", "./data"]
 [dependencies]
 bstr = "0.2"
 lexical = "5.2"
-mint = "0.5.6"
-num-traits = "0.2"
 nom = "6"
 smallvec = "1.5"
 
