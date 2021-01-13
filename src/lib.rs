@@ -393,7 +393,7 @@ impl Bvh {
             motion_values: Vec::new(),
             num_channels: 0,
             frame_time: Duration::from_secs(0),
-    }
+        }
     }
 
     /// Parse a sequence of bytes as if it were an in-memory `Bvh` file.
@@ -433,15 +433,15 @@ impl Bvh {
     pub fn from_reader<R: BufReadExt>(mut reader: R) -> Result<Self, LoadError> {
         #[inline(never)]
         fn from_reader_(reader: &mut dyn BufReadExt) -> Result<Bvh, LoadError> {
-        let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
+            let mut lines = CachedEnumerate::new(reader.byte_lines().enumerate());
 
-        let mut bvh = Bvh::default();
+            let mut bvh = Bvh::default();
 
-        bvh.read_joints(&mut lines)?;
-        bvh.read_motion(&mut lines)?;
+            bvh.read_joints(&mut lines)?;
+            bvh.read_motion(&mut lines)?;
 
-        Ok(bvh)
-    }
+            Ok(bvh)
+        }
 
         from_reader_(reader.by_ref())
     }
@@ -562,9 +562,9 @@ impl Bvh {
     pub fn frames(&self) -> Frames<'_> {
         Frames {
             chunks: NonZeroUsize::new(self.num_channels).map(|_| {
-                    self.motion_values
-                        .as_slice()
-                        .chunks_exact(self.num_channels)
+                self.motion_values
+                    .as_slice()
+                    .chunks_exact(self.num_channels)
             }),
         }
     }
@@ -588,9 +588,9 @@ impl Bvh {
     pub fn frames_mut(&mut self) -> FramesMut<'_> {
         FramesMut {
             chunks: NonZeroUsize::new(self.num_channels).map(move |_| {
-                    self.motion_values
-                        .as_mut_slice()
-                        .chunks_exact_mut(self.num_channels)
+                self.motion_values
+                    .as_mut_slice()
+                    .chunks_exact_mut(self.num_channels)
             }),
         }
     }
