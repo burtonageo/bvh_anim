@@ -1,7 +1,6 @@
 //! Errors which may occur when manipulating `Bvh` files.
 
 use crate::Axis;
-use bstr::BString;
 use lexical::Error as LexicalError;
 use std::{error::Error as StdError, fmt, io};
 
@@ -412,18 +411,18 @@ impl StdError for SetMotionError {
 pub struct ParseChannelError {
     // @TODO(burtonageo): Borrow the erroneous string when hrts
     // land.
-    bad_string: BString,
+    bad_string: Vec<u8>,
 }
 
 impl ParseChannelError {
     /// Get the `BString` which caused the parse error.
     #[inline]
-    pub fn into_inner(self) -> BString {
+    pub fn into_inner(self) -> Vec<u8> {
         self.bad_string
     }
 }
 
-impl<S: Into<BString>> From<S> for ParseChannelError {
+impl<S: Into<Vec<u8>>> From<S> for ParseChannelError {
     #[inline]
     fn from(bad_string: S) -> Self {
         ParseChannelError {

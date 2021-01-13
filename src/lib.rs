@@ -213,7 +213,7 @@ use crate::{
 };
 use bstr::{
     io::{BufReadExt, ByteLines},
-    BStr, BString, ByteSlice,
+    BStr, ByteSlice,
 };
 use std::{
     convert::TryFrom,
@@ -474,8 +474,11 @@ impl Bvh {
         write::WriteOptions::default().write(self, writer)
     }
 
-    /// Writes the `Bvh` using the `bvh` file format into a `BString` with
+    /// Writes the `Bvh` using the `bvh` file format into a `Vec<u8>` with
     /// the default formatting options.
+    ///
+    /// The data is guaranteed to be `ASCII`, except for the joint names, which
+    /// may contain arbitrary bytes.
     ///
     /// # Notes
     ///
@@ -483,7 +486,7 @@ impl Bvh {
     ///
     /// [`WriteOptions`]: write/struct.WriteOptions.html
     #[inline]
-    pub fn to_bstring(&self) -> BString {
+    pub fn to_string(&self) -> Vec<u8> {
         write::WriteOptions::default().write_to_string(self)
     }
 
@@ -698,13 +701,6 @@ impl Default for Bvh {
     #[inline]
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl fmt::Display for Bvh {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.to_bstring(), f)
     }
 }
 

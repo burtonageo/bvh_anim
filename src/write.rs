@@ -1,7 +1,6 @@
 //! Contains options for `bvh` file formatting.
 
 use crate::{frames::Frames, Bvh, Joint, Joints};
-use bstr::{BStr, BString};
 use smallvec::SmallVec;
 use std::{
     fmt,
@@ -77,7 +76,7 @@ impl WriteOptions {
     }
 
     /// Output the `Bvh` file to the `string` with the given options.
-    pub fn write_to_string(&self, bvh: &Bvh) -> BString {
+    pub fn write_to_string(&self, bvh: &Bvh) -> Vec<u8> {
         let mut curr_chunk = vec![];
         let mut out_string = vec![];
         let mut iter_state = WriteOptionsIterState::new();
@@ -86,7 +85,7 @@ impl WriteOptions {
             out_string.extend(curr_chunk.drain(..));
         }
 
-        BString::from(out_string)
+        out_string
     }
 
     /// Sets `indent` on `self` to the new `IndentStyle`.
@@ -160,13 +159,13 @@ impl WriteOptions {
     ) -> bool {
         chunk.clear();
 
-        let terminator = self.line_terminator.as_bstr().as_ref();
+        let terminator = self.line_terminator.as_bytes();
 
         match *iter_state {
             WriteOptionsIterState::WriteHierarchy { ref mut written } => {
                 if !*written {
                     *chunk = b"HIERARCHY".to_vec();
-                    chunk.extend_from_slice(self.line_terminator.as_bstr().as_ref());
+                    chunk.extend_from_slice(self.line_terminator.as_bytes());
                     *written = true;
                 } else {
                     let mut joints = bvh.joints();
@@ -201,8 +200,6 @@ impl WriteOptions {
 
                     match (&mut *wrote_name, &mut *wrote_offset, &mut *wrote_channels) {
                         (&mut false, _, _) => {
-                            // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
-                            // allocation
                             chunk.extend(self.indent.prefix_chars(depth));
                             if joint_data.is_root() {
                                 chunk.extend_from_slice(b"ROOT ");
@@ -218,8 +215,6 @@ impl WriteOptions {
                             *wrote_name = true;
                         }
                         (&mut true, &mut false, _) => {
-                            // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
-                            // allocation
                             chunk.extend(self.indent.prefix_chars(depth));
 
                             let [x, y, z] = joint_data.offset();
@@ -234,8 +229,6 @@ impl WriteOptions {
                             *wrote_offset = true;
                         }
                         (&mut true, &mut true, &mut false) => {
-                            // @TODO: Contribute `Extend` impl for `BString` to avoid the `Vec`
-                            // allocation
                             chunk.extend(self.indent.prefix_chars(depth));
 
                             let channels = joint_data.channels();
@@ -488,16 +481,16 @@ impl LineTerminator {
         }
     }
 
-    /// Return the characters of the `LineTerminator` as a `&BStr`.
+    /// Return the characters of the `LineTerminator` as a `&[u8]`.
     #[inline]
-    pub fn as_bstr(&self) -> &BStr {
-        self.as_str().as_ref()
+    pub const fn as_bytes(&self) -> &[u8] {
+        self.as_str().as_bytes()
     }
 
-    /// Returns the escaped characters of the `LineTerminator` as a `&BStr`.
+    /// Returns the escaped characters of the `LineTerminator` as a `&[u8]`.
     #[inline]
-    pub fn as_escaped_bstr(&self) -> &BStr {
-        self.as_escaped_str().as_ref()
+    pub const fn as_escaped_bytes(&self) -> &[u8] {
+        self.as_escaped_str().as_bytes()
     }
 }
 

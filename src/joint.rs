@@ -60,12 +60,12 @@ impl JointData {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &BStr {
+    pub(crate) fn name(&self) -> &[u8] {
         let name = match *self {
             JointData::Root { ref name, .. } | JointData::Child { ref name, .. } => name,
         };
 
-        name.as_bstr()
+        name.as_bytes()
     }
 
     #[inline]
@@ -219,7 +219,7 @@ pub(crate) type JointNameInner = SmallVec<[u8; mem::size_of::<String>()]>;
 pub(crate) struct JointName(pub(crate) JointNameInner);
 
 impl JointName {
-    pub(crate) fn as_bstr(&self) -> &BStr {
+    pub(crate) fn as_bytes(&self) -> &[u8] {
         self.as_ref()
     }
 }
@@ -239,17 +239,17 @@ impl DerefMut for JointName {
     }
 }
 
-impl<B: AsRef<[u8]>> PartialEq<B> for JointName {
+impl<B: ?Sized + AsRef<[u8]>> PartialEq<B> for JointName {
     #[inline]
     fn eq(&self, rhs: &B) -> bool {
-        AsRef::<BStr>::as_ref(self) == rhs.as_ref()
+        AsRef::<[u8]>::as_ref(self) == rhs.as_ref()
     }
 }
 
-impl<B: AsRef<[u8]>> PartialOrd<B> for JointName {
+impl<B: ?Sized + AsRef<[u8]>> PartialOrd<B> for JointName {
     #[inline]
     fn partial_cmp(&self, rhs: &B) -> Option<Ordering> {
-        AsRef::<BStr>::as_ref(self).partial_cmp(rhs.as_ref())
+        AsRef::<[u8]>::as_ref(self).partial_cmp(rhs.as_ref())
     }
 }
 
@@ -444,8 +444,11 @@ impl<'a> Joints<'a> {
 
     /// Finds the `Joint` named `joint_name`, or `None` if it doesn't exist.
     #[inline]
-    pub fn find_by_name(&mut self, joint_name: &str) -> Option<Joint<'a>> {
-        self.find(|b| b.data().name() == joint_name)
+    pub fn find_by_name<B>(&mut self, joint_name: &B) -> Option<Joint<'a>>
+    where
+        B: ?Sized + AsRef<[u8]>,
+    {
+        self.find(|b| b.data().name() == joint_name.as_ref())
     }
 
     #[allow(unused)]
@@ -631,10 +634,10 @@ impl Joint<'_> {
     /// };
     ///
     /// let root = bvh.root_joint().unwrap();
-    /// assert_eq!(root.name(), "Hips");
+    /// assert_eq!(root.name(), b"Hips");
     /// ```
     #[inline]
-    pub fn name(&self) -> &BStr {
+    pub fn name(&self) -> &[u8] {
         self.data().name()
     }
 
