@@ -892,20 +892,6 @@ impl ChannelType {
             ChannelType::PositionZ => "Zposition",
         }
     }
-
-    /// Returns the string representation of the `ChannelType`.
-    #[inline]
-    pub fn as_bstr(&self) -> &'static BStr {
-        <&BStr>::from(self.as_str())
-    }
-}
-
-impl TryFrom<&'_ BStr> for ChannelType {
-    type Error = ParseChannelError;
-    #[inline]
-    fn try_from(string: &BStr) -> Result<Self, Self::Error> {
-        ChannelType::from_bytes(string)
-    }
 }
 
 impl TryFrom<&'_ [u8]> for ChannelType {
@@ -920,7 +906,7 @@ impl TryFrom<&'_ str> for ChannelType {
     type Error = ParseChannelError;
     #[inline]
     fn try_from(string: &str) -> Result<Self, Self::Error> {
-        ChannelType::from_str(string)
+        ChannelType::from_bytes(string.as_bytes())
     }
 }
 
