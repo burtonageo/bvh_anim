@@ -830,7 +830,7 @@ impl ChannelType {
     /// assert!(channel_type.is_rotation());
     /// ```
     #[inline]
-    pub fn is_rotation(&self) -> bool {
+    pub const fn is_rotation(&self) -> bool {
         match *self {
             ChannelType::RotationX | ChannelType::RotationY | ChannelType::RotationZ => true,
             _ => false,
@@ -848,7 +848,7 @@ impl ChannelType {
     /// assert!(channel_type.is_position());
     /// ```
     #[inline]
-    pub fn is_position(&self) -> bool {
+    pub const fn is_position(&self) -> bool {
         !self.is_rotation()
     }
 
