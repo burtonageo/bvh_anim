@@ -862,7 +862,7 @@ impl ChannelType {
     /// assert_eq!(channel_type.axis(), Axis::X);
     /// ```
     #[inline]
-    pub fn axis(&self) -> Axis {
+    pub const fn axis(&self) -> Axis {
         match *self {
             ChannelType::RotationX | ChannelType::PositionX => Axis::X,
             ChannelType::RotationY | ChannelType::PositionY => Axis::Y,
@@ -881,7 +881,7 @@ impl ChannelType {
 
     /// Returns the string representation of the `ChannelType`.
     #[inline]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match *self {
             ChannelType::RotationX => "Xrotation",
             ChannelType::RotationY => "Yrotation",
