@@ -870,15 +870,6 @@ impl ChannelType {
         }
     }
 
-    /// Returns the `Vector3` of the channel axis. See the [`Axis::vector`]
-    /// [`Axis::vector`] method for more info.
-    ///
-    /// [`Axis::vector`]: enum.Axis.html#method.vector
-    #[inline]
-    pub fn axis_vector(&self) -> Offset {
-        self.axis().vector()
-    }
-
     /// Returns the string representation of the `ChannelType`.
     #[inline]
     pub const fn as_str(&self) -> &'static str {
