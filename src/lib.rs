@@ -203,7 +203,7 @@ pub mod write;
 
 mod frame_cursor;
 mod frame_iter;
-mod joint;
+pub mod joint;
 mod parse;
 
 use crate::{
