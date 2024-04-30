@@ -309,7 +309,6 @@ macro_rules! impl_channel_frame_index {
                 type SliceIndex = usize;
 
                 #[inline]
-                #[inline]
                 fn to_slice_index(self) -> Self::SliceIndex {
                     self.motion_index
                 }

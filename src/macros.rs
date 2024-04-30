@@ -533,7 +533,7 @@ mod tests {
                 channels: &[ChannelType],
                 end_site: O,
             ) {
-                assert_eq!(joint.name(), expected_name);
+                assert_eq!(joint.name(), expected_name.as_bytes());
                 assert_eq!(*joint.offset(), expected_offset);
                 for (chan, expected_chan) in joint
                     .channels()
