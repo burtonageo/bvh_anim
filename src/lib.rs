@@ -331,7 +331,7 @@ pub fn from_reader<R: BufReadExt>(data: R) -> Result<Bvh, LoadError> {
 /// # Result::<(), bvh_anim::errors::LoadError>::Ok(())
 /// ```
 #[inline]
-pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<Bvh, LoadError> {
+pub fn from_bytes<B: ?Sized + AsRef<[u8]>>(bytes: &B) -> Result<Bvh, LoadError> {
     Bvh::from_bytes(bytes)
 }
 
@@ -424,8 +424,8 @@ impl Bvh {
     /// # Result::<(), bvh_anim::errors::LoadError>::Ok(())
     /// ```
     #[inline]
-    pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<Self, LoadError> {
-        Bvh::from_reader(Cursor::new(bytes))
+    pub fn from_bytes<B: ?Sized + AsRef<[u8]>>(bytes: &B) -> Result<Self, LoadError> {
+        Bvh::from_reader(Cursor::new(bytes.as_ref()))
     }
 
     /// Loads the `Bvh` from the `reader`.
